@@ -1,3 +1,4 @@
+import { hashPassword } from "@/lib/auth-utils";
 import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -59,10 +60,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // Hasher le mot de passe
+    const hashedPassword = hashPassword(mot_de_passe);
+
     // Créer le compte
     const compteData: any = {
       identifiant,
-      motDePasse: mot_de_passe,
+      motDePasse: hashedPassword,
       role,
       collaborateur: {
         connect: { id: collaborateur_id },

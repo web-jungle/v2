@@ -1,71 +1,85 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Bell } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import { notificationsInitiales } from "@/lib/conges-data"
-import type { Notification } from "@/lib/conges-types"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { useAuthToken } from "@/hooks/useAuthToken";
+import { notificationsInitiales } from "@/lib/conges-data";
+import type { Notification } from "@/lib/conges-types";
+import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
-  const router = useRouter()
-  const { user } = useAuth()
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const { isAuthenticated, userId } = useAuthToken();
 
   useEffect(() => {
-    if (user) {
+    if (isAuthenticated && userId) {
       // Filtrer les notifications pour l'utilisateur connecté
-      const userNotifications = notificationsInitiales.filter((notification) => notification.utilisateurId === user.id)
-      setNotifications(userNotifications)
+      const userNotifications = notificationsInitiales.filter(
+        (notification) => notification.utilisateurId === userId
+      );
+      setNotifications(userNotifications);
 
       // Compter les notifications non lues
-      const unread = userNotifications.filter((notification) => !notification.lue).length
-      setUnreadCount(unread)
+      const unread = userNotifications.filter(
+        (notification) => !notification.lue
+      ).length;
+      setUnreadCount(unread);
     }
-  }, [user])
+  }, [isAuthenticated, userId]);
 
   const handleNotificationClick = (notification: Notification) => {
     // Marquer la notification comme lue
-    const updatedNotifications = notifications.map((n) => (n.id === notification.id ? { ...n, lue: true } : n))
-    setNotifications(updatedNotifications)
+    const updatedNotifications = notifications.map((n) =>
+      n.id === notification.id ? { ...n, lue: true } : n
+    );
+    setNotifications(updatedNotifications);
 
     // Mettre à jour le compteur
-    setUnreadCount(updatedNotifications.filter((n) => !n.lue).length)
+    setUnreadCount(updatedNotifications.filter((n) => !n.lue).length);
 
     // Fermer le menu
-    setIsOpen(false)
+    setIsOpen(false);
 
     // Si la notification concerne une demande de congé, stocker l'ID dans le localStorage
     if (notification.type === "conge" && notification.demandeId) {
-      localStorage.setItem("selectedDemandeId", notification.demandeId)
+      localStorage.setItem("selectedDemandeId", notification.demandeId);
     }
 
     // Naviguer vers le lien
-    router.push(notification.lien)
-  }
+    router.push(notification.lien);
+  };
 
   // Fermer le menu si on clique en dehors
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (isOpen && !(event.target as Element).closest(".notifications-container")) {
-        setIsOpen(false)
+      if (
+        isOpen &&
+        !(event.target as Element).closest(".notifications-container")
+      ) {
+        setIsOpen(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [isOpen])
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
 
   return (
     <div className="relative notifications-container">
-      <Button variant="ghost" size="icon" className="relative" onClick={() => setIsOpen(!isOpen)}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <Badge
@@ -86,17 +100,23 @@ export default function Notifications() {
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-3 cursor-pointer hover:bg-muted ${!notification.lue ? "bg-muted/50" : ""}`}
+                    className={`p-3 cursor-pointer hover:bg-muted ${
+                      !notification.lue ? "bg-muted/50" : ""
+                    }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-2">
                       <div
-                        className={`w-2 h-2 rounded-full mt-1.5 ${!notification.lue ? "bg-blue-500" : "bg-gray-300"}`}
+                        className={`w-2 h-2 rounded-full mt-1.5 ${
+                          !notification.lue ? "bg-blue-500" : "bg-gray-300"
+                        }`}
                       ></div>
                       <div>
                         <p className="text-sm">{notification.message}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(notification.dateCreation).toLocaleDateString("fr-FR", {
+                          {new Date(
+                            notification.dateCreation
+                          ).toLocaleDateString("fr-FR", {
                             day: "numeric",
                             month: "short",
                             hour: "2-digit",
@@ -109,11 +129,13 @@ export default function Notifications() {
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center text-muted-foreground">Aucune notification</div>
+              <div className="p-4 text-center text-muted-foreground">
+                Aucune notification
+              </div>
             )}
           </div>
         </Card>
       )}
     </div>
-  )
+  );
 }

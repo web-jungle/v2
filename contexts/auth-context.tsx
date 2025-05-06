@@ -1,127 +1,135 @@
-"use client"
+"use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
-import type { SessionUtilisateur, Evenement } from "@/lib/types"
+import { useAuthToken } from "@/hooks/useAuthToken";
+import type { Evenement, Role, SessionUtilisateur } from "@/lib/types";
+import { useRouter } from "next/navigation";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 interface AuthContextType {
-  user: SessionUtilisateur | null
-  login: (identifiant: string, motDePasse: string) => Promise<boolean>
-  logout: () => void
-  isLoading: boolean
-  globalEvents: Evenement[]
-  updateEvents: (events: Evenement[]) => void
+  user: SessionUtilisateur | null;
+  login: (identifiant: string, motDePasse: string) => Promise<boolean>;
+  logout: () => void;
+  isLoading: boolean;
+  globalEvents: Evenement[];
+  updateEvents: (events: Evenement[]) => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SessionUtilisateur | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [globalEvents, setGlobalEvents] = useState<Evenement[]>([])
-  const router = useRouter()
+  const [user, setUser] = useState<SessionUtilisateur | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [globalEvents, setGlobalEvents] = useState<Evenement[]>([]);
+  const router = useRouter();
+  const {
+    isAuthenticated,
+    userId,
+    role,
+    login: tokenLogin,
+    logout: tokenLogout,
+  } = useAuthToken();
 
-  // Vérifier s'il y a un utilisateur en session au chargement
+  // Synchroniser user avec les données d'authentification du token
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const storedUser = localStorage.getItem("user")
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser)
-          setUser(parsedUser)
-
-          // Charger les événements
-          await loadEvents()
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération de l'utilisateur:", error)
-        localStorage.removeItem("user")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    // Exécuter uniquement côté client
-    if (typeof window !== "undefined") {
-      checkUser()
+    if (isAuthenticated && userId) {
+      // Créer un objet user compatible avec l'interface attendue
+      const tokenUser: SessionUtilisateur = {
+        id: userId,
+        role: (role as Role) || "collaborateur",
+        nom: `Utilisateur #${userId}`,
+        identifiant: `user_${userId}`,
+        collaborateur_id: null,
+        collaborateurs_geres: [],
+      };
+      setUser(tokenUser);
+      setIsLoading(false);
     } else {
-      setIsLoading(false)
+      setUser(null);
+      setIsLoading(false);
     }
-  }, [])
+  }, [isAuthenticated, userId, role]);
+
+  // Charger les événements lorsque l'utilisateur est authentifié
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadEvents();
+    }
+  }, [isAuthenticated]);
 
   const loadEvents = async () => {
     try {
-      const response = await fetch("/api/evenements")
+      const response = await fetch("/api/evenements");
       if (!response.ok) {
-        throw new Error("Erreur lors du chargement des événements")
+        throw new Error("Erreur lors du chargement des événements");
       }
 
-      const events = await response.json()
+      const events = await response.json();
 
       // Convertir les dates string en objets Date
       const formattedEvents = events.map((event: any) => ({
         ...event,
         start: new Date(event.start),
         end: new Date(event.end),
-      }))
+      }));
 
-      setGlobalEvents(formattedEvents)
+      setGlobalEvents(formattedEvents);
     } catch (error) {
-      console.error("Erreur lors du chargement des événements:", error)
+      console.error("Erreur lors du chargement des événements:", error);
     }
-  }
+  };
 
-  const login = async (identifiant: string, motDePasse: string): Promise<boolean> => {
+  const login = async (
+    identifiant: string,
+    motDePasse: string
+  ): Promise<boolean> => {
     try {
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ identifiant, motDePasse }),
-      })
+      // Utiliser le login du nouveau système
+      const success = await tokenLogin(identifiant, motDePasse);
 
-      if (!response.ok) {
-        return false
+      if (success) {
+        // Les données utilisateur sont déjà mises à jour via l'effet ci-dessus
+        // Charger les événements
+        await loadEvents();
       }
 
-      const userData = await response.json()
-
-      // Stocker l'utilisateur dans le localStorage
-      localStorage.setItem("user", JSON.stringify(userData))
-      setUser(userData)
-
-      // Charger les événements
-      await loadEvents()
-
-      return true
+      return success;
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error)
-      return false
+      console.error("Erreur lors de la connexion:", error);
+      return false;
     }
-  }
+  };
 
   const updateEvents = async (events: Evenement[]) => {
-    setGlobalEvents(events)
-  }
+    setGlobalEvents(events);
+  };
 
   const logout = () => {
-    localStorage.removeItem("user")
-    setUser(null)
-    router.push("/login")
-  }
+    // Utiliser le logout du nouveau système
+    tokenLogout();
+    setUser(null);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, globalEvents, updateEvents }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, isLoading, globalEvents, updateEvents }}
+    >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth doit être utilisé à l'intérieur d'un AuthProvider")
+    throw new Error(
+      "useAuth doit être utilisé à l'intérieur d'un AuthProvider"
+    );
   }
-  return context
+  return context;
 }

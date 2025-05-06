@@ -1,3 +1,4 @@
+import { hashPassword } from "@/lib/auth-utils";
 import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -70,9 +71,9 @@ export async function PUT(
       role,
     };
 
-    // Ajouter le mot de passe si fourni
+    // Ajouter le mot de passe hashé si fourni
     if (mot_de_passe) {
-      compteData.motDePasse = mot_de_passe;
+      compteData.motDePasse = hashPassword(mot_de_passe);
     }
 
     // Gérer les collaborateurs gérés

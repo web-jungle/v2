@@ -1,52 +1,71 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
-import { CalendarRange, Users, Truck, UserCog, Moon, Sun } from "lucide-react"
-import Image from "next/image"
-import { useTheme } from "next-themes"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useAuthToken } from "@/hooks/useAuthToken";
+import { CalendarRange, Moon, Sun, Truck, UserCog, Users } from "lucide-react";
+import { useTheme } from "next-themes";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function HomePage() {
-  const { user, isLoading } = useAuth()
-  const router = useRouter()
-  const { theme, setTheme } = useTheme()
+  const { isAuthenticated, userId, isLoading } = useAuthToken();
+  const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
+  // Rediriger si non authentifié
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
+    if (!isLoading && !isAuthenticated) {
+      router.push("/login");
     }
-  }, [user, isLoading, router])
+  }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading || !user) {
+  // État de chargement
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="container mx-auto py-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Chargement...</h2>
-          <p className="text-muted-foreground">Veuillez patienter pendant le chargement de votre espace.</p>
+          <p className="text-muted-foreground">
+            Veuillez patienter pendant le chargement de votre espace.
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="container mx-auto py-12">
       <div className="flex flex-col items-center mb-8">
         <div className="relative w-32 h-32 mb-4">
-          <Image src="/images/logo.png" alt="ORIZON GROUP" fill className="object-contain" priority />
+          <Image
+            src="/images/logo.png"
+            alt="ORIZON GROUP"
+            fill
+            className="object-contain"
+            priority
+          />
         </div>
-        <h1 className="text-3xl font-bold">Bienvenue, {user.nom}</h1>
+        <h1 className="text-3xl font-bold">Bienvenue</h1>
         <div className="flex items-center space-x-2 mt-4">
           <div className="flex items-center space-x-2">
             <Sun className="h-4 w-4" />
             <Switch
               id="dark-mode"
               checked={theme === "dark"}
-              onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+              onCheckedChange={(checked) =>
+                setTheme(checked ? "dark" : "light")
+              }
             />
             <Moon className="h-4 w-4" />
             <Label htmlFor="dark-mode" className="ml-1">
@@ -67,11 +86,14 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-muted-foreground text-sm">
-              Organisez le travail des collaborateurs, gérez les absences et suivez les activités.
+              Organisez le travail des collaborateurs, gérez les absences et
+              suivez les activités.
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/planning")}>Accéder au Planning</Button>
+            <Button onClick={() => router.push("/planning")}>
+              Accéder au Planning
+            </Button>
           </CardFooter>
         </Card>
 
@@ -85,11 +107,15 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-muted-foreground text-sm">
-              Gérez vos prospects et clients, suivez l'avancement des projets commerciaux.
+              Gérez vos prospects et clients, suivez l'avancement des projets
+              commerciaux.
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/crm")} className="bg-blue-500 hover:bg-blue-600">
+            <Button
+              onClick={() => router.push("/crm")}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
               Accéder au CRM
             </Button>
           </CardFooter>
@@ -105,11 +131,15 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-muted-foreground text-sm">
-              Gérez les dossiers du personnel, les contrats, certifications et habilitations.
+              Gérez les dossiers du personnel, les contrats, certifications et
+              habilitations.
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/rh")} className="bg-green-500 hover:bg-green-600">
+            <Button
+              onClick={() => router.push("/rh")}
+              className="bg-green-500 hover:bg-green-600"
+            >
               Accéder aux RH
             </Button>
           </CardFooter>
@@ -125,16 +155,20 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-muted-foreground text-sm">
-              Suivez l'état de votre flotte de véhicules, les contrats et l'entretien.
+              Suivez l'état de votre flotte de véhicules, les contrats et
+              l'entretien.
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/logistique")} className="bg-orange-500 hover:bg-orange-600">
+            <Button
+              onClick={() => router.push("/logistique")}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
               Accéder à la Logistique
             </Button>
           </CardFooter>
         </Card>
       </div>
     </div>
-  )
+  );
 }

@@ -117,12 +117,12 @@ export default function AdminPage() {
     fetchComptes();
   }, []);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (name, value) => {
+  const handleSelectChange = (name: string, value: string) => {
     const finalValue = value === "" ? null : value;
     setFormData((prev) => ({ ...prev, [name]: finalValue }));
   };
@@ -139,7 +139,7 @@ export default function AdminPage() {
     setIsDialogOpen(true);
   };
 
-  const handleEditCompte = (compte) => {
+  const handleEditCompte = (compte: any) => {
     setCurrentCompte(compte);
 
     // S'assurer que collaborateursGeres est un tableau d'IDs simples
@@ -157,7 +157,7 @@ export default function AdminPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteCompte = async (id) => {
+  const handleDeleteCompte = async (id: string) => {
     try {
       setIsLoading(true);
       const response = await fetch(`/api/admin/comptes/${id}`, {
@@ -186,8 +186,11 @@ export default function AdminPage() {
     }
   };
 
-  const handleCollaborateurGereChange = (collaborateurId, checked) => {
-    setFormData((prev) => {
+  const handleCollaborateurGereChange = (
+    collaborateurId: string,
+    checked: boolean
+  ) => {
+    setFormData((prev: any) => {
       // S'assurer que collaborateursGeres est un tableau
       const currentCollaborateursGeres = Array.isArray(prev.collaborateursGeres)
         ? [...prev.collaborateursGeres]
@@ -219,7 +222,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
