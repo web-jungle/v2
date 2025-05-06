@@ -109,11 +109,6 @@ export default function CongesPage() {
 
   // Charger les demandes depuis l'API
   useEffect(() => {
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
     const fetchDemandes = async () => {
       try {
         setIsLoading(true);

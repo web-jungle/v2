@@ -79,44 +79,43 @@ export default function Planning() {
     const fetchCollaborateurs = async () => {
       try {
         setIsLoading(true);
-        let apiEndpoint = "/api/collaborateurs";
+        // Utiliser une seule API endpoint qui filtrera les données côté serveur selon le rôle
+        const apiEndpoint = "/api/collaborateurs";
 
-        // En fonction du rôle, on appelle un endpoint différent
-        if (userRole === "admin" && userCollaborateurId) {
-          // Pour un collaborateur: récupérer uniquement ses propres données
-          apiEndpoint = `/api/collaborateurs/${userCollaborateurId}`;
-        } else if (
-          (userRole === "manager" || userRole === "collaborateur") &&
-          userId
-        ) {
-          // Pour un manager: récupérer ses données et celles des collaborateurs qu'il gère
-          apiEndpoint = `/api/collaborateurs/managed/${userId}`;
-        }
-        // Pour un admin: récupérer tous les collaborateurs (endpoint par défaut)
+        console.log("Appel API collaborateurs:", apiEndpoint);
 
-        console.log("Appel API:", apiEndpoint);
         const response = await fetch(apiEndpoint);
+
+        if (!response.ok) {
+          throw new Error(`Erreur API: ${response.status}`);
+        }
+
         const data = await response.json();
         console.log("Données des collaborateurs chargées:", data.length);
 
-        // Si c'est un collaborateur, la donnée peut être un objet unique
-        const collaborateursArray = Array.isArray(data) ? data : [data];
-
-        setCollaborateurs(collaborateursArray);
+        setCollaborateurs(data);
 
         // Sélectionner tous les collaborateurs par défaut
-        setSelectedCollaborateurs(collaborateursArray.map((c: any) => c.id));
+        setSelectedCollaborateurs(data.map((c: any) => c.id));
       } catch (error) {
         console.error(
           "Erreur lors de la récupération des collaborateurs",
           error
         );
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les collaborateurs",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchCollaborateurs();
-  }, [refreshTrigger, userRole, userCollaborateurId, userId]);
+
+    if (isAuthenticated) {
+      fetchCollaborateurs();
+    }
+  }, [refreshTrigger, isAuthenticated, toast]);
 
   const currentWeekStart = useMemo(() => {
     return startOfWeek(date, { locale: fr });
@@ -134,24 +133,13 @@ export default function Planning() {
       setIsLoading(true);
       console.log("Chargement des événements...");
 
-      // Construire l'URL avec les filtres appropriés
-      let url = "/api/evenements";
-
-      // Ajouter les paramètres de filtre si nécessaire
-      const params = new URLSearchParams();
-
-      if (userRole === "collaborateur" && userCollaborateurId) {
-        params.append("collaborateurId", userCollaborateurId);
-      }
-
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      // Utiliser l'API simplifiée qui filtre déjà selon le rôle de l'utilisateur
+      const url = "/api/evenements";
 
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error("Erreur lors du chargement des événements");
+        throw new Error(`Erreur API: ${response.status}`);
       }
 
       const data = await response.json();
@@ -175,7 +163,7 @@ export default function Planning() {
     } finally {
       setIsLoading(false);
     }
-  }, [userRole, userCollaborateurId, toast]);
+  }, [toast]);
 
   // Charger les événements au chargement du composant et après un rafraîchissement
   useEffect(() => {

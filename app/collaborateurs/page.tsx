@@ -70,7 +70,16 @@ export default function CollaborateursPage() {
         const response = await fetch("/api/collaborateurs");
 
         if (!response.ok) {
-          throw new Error("Erreur lors de la récupération des collaborateurs");
+          if (response.status === 401) {
+            toast({
+              title: "Session expirée",
+              description: "Veuillez vous reconnecter",
+              variant: "destructive",
+            });
+            router.push("/login");
+            return;
+          }
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
@@ -88,7 +97,7 @@ export default function CollaborateursPage() {
     if (user) {
       fetchCollaborateurs();
     }
-  }, [user, toast]);
+  }, [user, toast, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -126,7 +135,15 @@ export default function CollaborateursPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Erreur lors de la suppression du collaborateur");
+        if (response.status === 401) {
+          toast({
+            title: "Session expirée",
+            description: "Veuillez vous reconnecter",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
 
       setCollaborateurs(collaborateurs.filter((c) => c.id !== id));
@@ -163,7 +180,16 @@ export default function CollaborateursPage() {
         );
 
         if (!response.ok) {
-          throw new Error("Erreur lors de la mise à jour du collaborateur");
+          if (response.status === 401) {
+            toast({
+              title: "Session expirée",
+              description: "Veuillez vous reconnecter",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
         }
 
         const updatedCollaborateur = await response.json();
@@ -188,7 +214,16 @@ export default function CollaborateursPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Erreur lors de la création du collaborateur");
+          if (response.status === 401) {
+            toast({
+              title: "Session expirée",
+              description: "Veuillez vous reconnecter",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
         }
 
         const newCollaborateur = await response.json();

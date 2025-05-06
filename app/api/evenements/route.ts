@@ -1,10 +1,20 @@
-import { verifyToken } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-// GET /api/evenements - Récupérer tous les événements
+// GET /api/evenements - Récupérer les événements avec filtrage selon le rôle
 export async function GET(req: Request) {
   try {
+    // Récupérer les informations utilisateur à partir des headers ajoutés par le middleware
+    const userId = req.headers.get("x-user-id");
+    const role = req.headers.get("x-user-role");
+
+    if (!userId || !role) {
+      return NextResponse.json(
+        { error: "Utilisateur non identifié" },
+        { status: 401 }
+      );
+    }
+
     // Récupérer les paramètres de filtre de l'URL
     const { searchParams } = new URL(req.url);
     const collaborateurId = searchParams.get("collaborateurId");
@@ -14,10 +24,54 @@ export async function GET(req: Request) {
     // Construction de la requête avec filtres conditionnels
     const whereClause: any = {};
 
+    // Filtrage intelligent selon le rôle de l'utilisateur
     if (collaborateurId) {
+      // Si un ID spécifique est demandé, privilégier ce paramètre
       whereClause.collaborateurId = collaborateurId;
-    }
+    } else if (role === "collaborateur") {
+      // Si collaborateur, récupérer uniquement ses propres événements
+      // Récupérer d'abord l'ID du collaborateur lié au compte
+      const compte = await prisma.compte.findUnique({
+        where: { id: userId },
+        select: { collaborateurId: true },
+      });
 
+      if (!compte || !compte.collaborateurId) {
+        return NextResponse.json(
+          { error: "Aucun collaborateur associé à ce compte" },
+          { status: 400 }
+        );
+      }
+
+      whereClause.collaborateurId = compte.collaborateurId;
+    } else if (role === "manager") {
+      // Si manager, récupérer ses événements et ceux des collaborateurs qu'il gère
+      const compte = await prisma.compte.findUnique({
+        where: { id: userId },
+        include: {
+          collaborateur: { select: { id: true } },
+          collaborateursGeres: { select: { id: true } },
+        },
+      });
+
+      if (!compte) {
+        return NextResponse.json(
+          { error: "Compte non trouvé" },
+          { status: 404 }
+        );
+      }
+
+      // Créer un tableau d'IDs incluant le manager et ses collaborateurs gérés
+      const collaborateurIds = [
+        compte.collaborateurId,
+        ...compte.collaborateursGeres.map((c) => c.id),
+      ].filter(Boolean); // Filtrer les valeurs null/undefined
+
+      whereClause.collaborateurId = { in: collaborateurIds };
+    }
+    // Pour admin, aucun filtre par défaut (récupération de tous les événements)
+
+    // Ajouter les filtres de date si fournis
     if (startDate && endDate) {
       whereClause.start = {
         gte: new Date(startDate),
@@ -26,6 +80,8 @@ export async function GET(req: Request) {
         lte: new Date(endDate),
       };
     }
+
+    console.log("Filtre appliqué pour les événements:", whereClause);
 
     const evenements = await prisma.evenement.findMany({
       where: whereClause,
@@ -44,7 +100,9 @@ export async function GET(req: Request) {
       end: new Date(event.end),
     }));
 
-    console.log("API evenements - données retournées:", formattedEvenements[0]);
+    console.log(
+      `API evenements - ${formattedEvenements.length} événements retournés`
+    );
     return NextResponse.json(formattedEvenements);
   } catch (error) {
     console.error("Erreur lors de la récupération des événements:", error);
@@ -58,27 +116,17 @@ export async function GET(req: Request) {
 // POST /api/evenements - Créer un nouvel événement
 export async function POST(req: Request) {
   try {
-    // Vérification de l'authentification
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Authentification requise" },
-        { status: 401 }
-      );
-    }
+    // Vérifier si l'utilisateur a les droits pour créer des événements
+    const role = req.headers.get("x-user-role");
 
-    const token = authHeader.split("Bearer ")[1];
-    const verifiedToken = await verifyToken(token);
-
-    if (!verifiedToken) {
+    if (!role) {
       return NextResponse.json(
-        { error: "Token invalide ou expiré" },
+        { error: "Utilisateur non identifié" },
         { status: 401 }
       );
     }
 
     // Vérification du rôle (seuls admin et manager peuvent créer des événements)
-    const { role } = verifiedToken;
     if (role !== "admin" && role !== "manager") {
       return NextResponse.json(
         {
