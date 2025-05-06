@@ -4,6 +4,7 @@
 generator client {
   provider = "prisma-client-js"
   seed     = "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  output   = "./node_modules/.prisma/client"
 }
 
 datasource db {
