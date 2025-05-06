@@ -2,6 +2,8 @@ import { hashPassword } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // Clé secrète pour autoriser l'accès (à remplacer en production)
 const SECRET_KEY = "hash_password_secret_key";
 

@@ -1,6 +1,8 @@
 import { verifyToken } from "@/lib/auth-utils";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     // Extraire le token du header Authorization

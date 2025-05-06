@@ -2,6 +2,8 @@ import { hashPassword } from "@/lib/auth-utils";
 import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 const prisma = new PrismaClient();
 
 export async function GET() {

@@ -2,6 +2,8 @@ import { verifyToken } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // Middleware d'authentification
 async function authenticate(request: Request) {
   // Extraire le token du header Authorization

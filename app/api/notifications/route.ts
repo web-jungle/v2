@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // GET /api/notifications - Récupérer toutes les notifications
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

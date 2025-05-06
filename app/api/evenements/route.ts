@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // GET /api/evenements - Récupérer les événements avec filtrage selon le rôle
 export async function GET(req: Request) {
   try {

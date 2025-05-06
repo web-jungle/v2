@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // GET /api/salaries - Récupérer toutes les fiches de poste
 export async function GET() {
   try {

@@ -3,6 +3,8 @@ import {
   notificationsInitiales,
 } from "@/lib/conges-data";
 import { contactsInitiaux } from "@/lib/crm-data";
+
+export const runtime = 'nodejs';
 import {
   collaborateurs,
   evenementsInitiaux,

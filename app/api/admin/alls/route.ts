@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     // 1. Récupérer tous les utilisateurs avec leurs collaborateurs associés

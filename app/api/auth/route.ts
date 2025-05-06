@@ -2,6 +2,8 @@ import { generateToken, verifyPassword } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // POST /api/auth - Authentifier un utilisateur
 export async function POST(request: Request) {
   try {

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // GET /api/vehicules - Récupérer tous les véhicules
 export async function GET() {
   try {

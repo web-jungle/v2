@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     // Tester la connexion en exécutant une requête simple

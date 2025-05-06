@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // GET /api/utilisateurs - Récupérer tous les utilisateurs
 export async function GET() {
   try {

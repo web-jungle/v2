@@ -1,6 +1,8 @@
 import { hasRole, verifyRequestAuth } from "@/lib/auth-server";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // Route API protégée qui vérifie l'authentification
 export async function GET(request: NextRequest) {
   // Vérifier l'authentification

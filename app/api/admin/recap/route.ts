@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 // Fonction utilitaire pour décomposer les zones
 function decomposeZone(zoneTrajet: string | null): {
   zone5: number;
