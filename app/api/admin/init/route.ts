@@ -1,15 +1,11 @@
-import { administrateursInitiaux } from "@/lib/data"
-import { PrismaClient } from "@prisma/client"
-import { NextResponse } from "next/server"
-
-export const runtime = 'nodejs';
-
-const prisma = new PrismaClient()
+import { administrateursInitiaux } from "@/lib/data";
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    console.log("🔍 Début de l'initialisation des administrateurs...")
-    
+    console.log("🔍 Début de l'initialisation des administrateurs...");
+
     // Insérer les administrateurs
     for (const admin of administrateursInitiaux) {
       await prisma.admin.upsert({
@@ -37,29 +33,32 @@ export async function GET() {
           dernierAcces: admin.dernier_acces,
           estActif: admin.est_actif,
         },
-      })
-      console.log(`  ✓ Administrateur inséré: ${admin.prenom} ${admin.nom}`)
+      });
+      console.log(`  ✓ Administrateur inséré: ${admin.prenom} ${admin.nom}`);
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: "Administrateurs initialisés avec succès", 
-        count: administrateursInitiaux.length 
+      {
+        success: true,
+        message: "Administrateurs initialisés avec succès",
+        count: administrateursInitiaux.length,
       },
       { status: 200 }
-    )
+    );
   } catch (error: any) {
-    console.error("❌ Erreur lors de l'initialisation des administrateurs:", error)
+    console.error(
+      "❌ Erreur lors de l'initialisation des administrateurs:",
+      error
+    );
     return NextResponse.json(
-      { 
-        success: false, 
-        message: "Erreur lors de l'initialisation des administrateurs", 
-        error: error.message 
+      {
+        success: false,
+        message: "Erreur lors de l'initialisation des administrateurs",
+        error: error.message,
       },
       { status: 500 }
-    )
+    );
   } finally {
-    await prisma.$disconnect()
+    await prisma.$disconnect();
   }
-} 
+}
