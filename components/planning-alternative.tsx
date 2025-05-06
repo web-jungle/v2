@@ -253,6 +253,148 @@ export default function Planning() {
       let startTime = tempSlotInfo.start;
       let endTime = tempSlotInfo.end;
 
+      // Si un collaborateur est spécifié, appliquer les heures par défaut selon l'entreprise
+      if (tempSlotInfo.collaborateurId) {
+        const collaborateur = collaborateurs.find(
+          (c) => c.id === tempSlotInfo.collaborateurId
+        );
+        if (collaborateur) {
+          const entreprise = collaborateur.entreprise;
+          const isFriday = tempSlotInfo.start.getDay() === 5; // 5 = vendredi
+
+          // Utiliser la fonction applyDefaultHours du composant EventModal
+          // qui contient la logique des horaires par défaut selon l'entreprise
+          const DEFAULT_HOURS: Record<
+            string,
+            {
+              normal: {
+                startHour: number;
+                startMinute: number;
+                endHour: number;
+                endMinute: number;
+              };
+              friday: {
+                startHour: number;
+                startMinute: number;
+                endHour: number;
+                endMinute: number;
+              };
+            }
+          > = {
+            "ORIZON TELECOM": {
+              normal: {
+                startHour: 8,
+                startMinute: 30,
+                endHour: 17,
+                endMinute: 0,
+              },
+              friday: {
+                startHour: 8,
+                startMinute: 30,
+                endHour: 16,
+                endMinute: 30,
+              },
+            },
+            "ORIZON GROUP": {
+              normal: {
+                startHour: 8,
+                startMinute: 30,
+                endHour: 17,
+                endMinute: 0,
+              },
+              friday: {
+                startHour: 8,
+                startMinute: 30,
+                endHour: 16,
+                endMinute: 30,
+              },
+            },
+            "ORIZON INSTALLATION": {
+              normal: {
+                startHour: 7,
+                startMinute: 30,
+                endHour: 15,
+                endMinute: 30,
+              },
+              friday: {
+                startHour: 7,
+                startMinute: 30,
+                endHour: 15,
+                endMinute: 30,
+              },
+            },
+            YELLEEN: {
+              normal: {
+                startHour: 7,
+                startMinute: 30,
+                endHour: 16,
+                endMinute: 30,
+              },
+              friday: {
+                startHour: 7,
+                startMinute: 30,
+                endHour: 15,
+                endMinute: 30,
+              },
+            },
+            // Valeurs par défaut pour les autres entreprises
+            DEFAULT: {
+              normal: {
+                startHour: 8,
+                startMinute: 0,
+                endHour: 17,
+                endMinute: 0,
+              },
+              friday: {
+                startHour: 8,
+                startMinute: 0,
+                endHour: 16,
+                endMinute: 0,
+              },
+            },
+          };
+
+          // Rechercher dans les clés de DEFAULT_HOURS de manière insensible à la casse
+          let hoursKey = "DEFAULT";
+
+          // Vérifier si l'entreprise correspond à une des clés (insensible à la casse)
+          const upperEntreprise = entreprise.toUpperCase().trim();
+          for (const key of Object.keys(DEFAULT_HOURS)) {
+            if (key.toUpperCase() === upperEntreprise) {
+              hoursKey = key;
+              break;
+            }
+          }
+
+          console.log(
+            "Entreprise détectée:",
+            entreprise,
+            "Clé utilisée:",
+            hoursKey
+          );
+
+          const hours = DEFAULT_HOURS[hoursKey];
+          const timeSettings = isFriday ? hours.friday : hours.normal;
+
+          startTime = new Date(tempSlotInfo.start);
+          startTime.setHours(
+            timeSettings.startHour,
+            timeSettings.startMinute,
+            0,
+            0
+          );
+
+          endTime = new Date(tempSlotInfo.start);
+          endTime.setHours(timeSettings.endHour, timeSettings.endMinute, 0, 0);
+
+          console.log(
+            "Horaires appliqués:",
+            `${startTime.getHours()}:${startTime.getMinutes()}`,
+            `${endTime.getHours()}:${endTime.getMinutes()}`
+          );
+        }
+      }
+
       // Forcer le type à être "absence" ou "presence"
       const eventType = type === "absence" ? "absence" : "presence";
 
@@ -289,7 +431,7 @@ export default function Planning() {
       setIsTypeSelectorOpen(false);
       setIsModalOpen(true);
     },
-    [tempSlotInfo]
+    [tempSlotInfo, collaborateurs]
   );
 
   const handleSaveEvent = useCallback(

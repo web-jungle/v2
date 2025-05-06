@@ -1,21 +1,114 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { calculateDistance, determineZoneTrajet, SIEGE_SOCIAL } from "@/lib/geo-utils"
-import type { Collaborateur, Evenement, GeocodingResult, Role, TypeAbsence } from "@/lib/types"
-import { AlertCircle, Info, Lock, MapPin } from "lucide-react"
-import { useEffect, useState } from "react"
-import AddressSearch from "./address-search"
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  calculateDistance,
+  determineZoneTrajet,
+  SIEGE_SOCIAL,
+} from "@/lib/geo-utils";
+import type {
+  Collaborateur,
+  Evenement,
+  GeocodingResult,
+  Role,
+  TypeAbsence,
+} from "@/lib/types";
+import { AlertCircle, Info, Lock, MapPin } from "lucide-react";
+import { useEffect, useState } from "react";
+import AddressSearch from "./address-search";
+
+// Définition des horaires par défaut selon l'entreprise
+const DEFAULT_HOURS: Record<
+  string,
+  {
+    normal: {
+      startHour: number;
+      startMinute: number;
+      endHour: number;
+      endMinute: number;
+    };
+    friday: {
+      startHour: number;
+      startMinute: number;
+      endHour: number;
+      endMinute: number;
+    };
+  }
+> = {
+  "ORIZON TELECOM": {
+    normal: { startHour: 8, startMinute: 30, endHour: 17, endMinute: 0 },
+    friday: { startHour: 8, startMinute: 30, endHour: 16, endMinute: 30 },
+  },
+  "ORIZON GROUP": {
+    normal: { startHour: 8, startMinute: 30, endHour: 17, endMinute: 0 },
+    friday: { startHour: 8, startMinute: 30, endHour: 16, endMinute: 30 },
+  },
+  "ORIZON INSTALLATION": {
+    normal: { startHour: 7, startMinute: 30, endHour: 15, endMinute: 30 },
+    friday: { startHour: 7, startMinute: 30, endHour: 15, endMinute: 30 },
+  },
+  YELLEEN: {
+    normal: { startHour: 7, startMinute: 30, endHour: 16, endMinute: 30 },
+    friday: { startHour: 7, startMinute: 30, endHour: 15, endMinute: 30 },
+  },
+  // Valeurs par défaut pour les autres entreprises
+  DEFAULT: {
+    normal: { startHour: 8, startMinute: 0, endHour: 17, endMinute: 0 },
+    friday: { startHour: 8, startMinute: 0, endHour: 16, endMinute: 0 },
+  },
+};
+
+// Fonction utilitaire pour appliquer les horaires selon l'entreprise
+function applyDefaultHours(
+  date: Date,
+  entreprise: string,
+  isFriday: boolean
+): { start: Date; end: Date } {
+  // Rechercher dans les clés de DEFAULT_HOURS de manière insensible à la casse
+  let hoursKey = "DEFAULT";
+
+  // Vérifier si l'entreprise correspond à une des clés (insensible à la casse)
+  const upperEntreprise = entreprise.toUpperCase().trim();
+  for (const key of Object.keys(DEFAULT_HOURS)) {
+    if (key.toUpperCase() === upperEntreprise) {
+      hoursKey = key;
+      break;
+    }
+  }
+
+  const hours = DEFAULT_HOURS[hoursKey];
+  const timeSettings = isFriday ? hours.friday : hours.normal;
+
+  const startDate = new Date(date);
+  startDate.setHours(timeSettings.startHour, timeSettings.startMinute, 0, 0);
+
+  const endDate = new Date(date);
+  endDate.setHours(timeSettings.endHour, timeSettings.endMinute, 0, 0);
+
+  return { start: startDate, end: endDate };
+}
 
 // Définir une interface pour le formulaire qui utilise uniquement les propriétés camelCase
 interface FormData {
@@ -35,20 +128,20 @@ interface FormData {
   nombrePrgd: number;
   typeAbsence?: string;
   verrouille: boolean;
-  latitude?: number;
-  longitude?: number;
-  adresseComplete?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  adresseComplete?: string | null;
 }
 
 interface EventModalProps {
-  isOpen: boolean
-  onClose: () => void
-  event: Evenement | null
-  onSave: (event: Evenement) => void
-  onDelete: (eventId: string) => void
-  collaborateurs: Collaborateur[]
-  userRole?: Role
-  userCollaborateurId?: string
+  isOpen: boolean;
+  onClose: () => void;
+  event: Evenement | null;
+  onSave: (event: Evenement) => void;
+  onDelete: (eventId: string) => void;
+  collaborateurs: Collaborateur[];
+  userRole?: Role;
+  userCollaborateurId?: string;
 }
 
 export default function EventModal({
@@ -78,38 +171,48 @@ export default function EventModal({
     nombrePrgd: 0,
     ticketRestaurant: false,
     verrouille: false,
-  })
+  });
 
-  const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null)
-  const [calculatedZone, setCalculatedZone] = useState<string | null>(null)
-  const [showMutuallyExclusiveWarning, setShowMutuallyExclusiveWarning] = useState(false)
+  const [calculatedDistance, setCalculatedDistance] = useState<number | null>(
+    null
+  );
+  const [calculatedZone, setCalculatedZone] = useState<string | null>(null);
+  const [showMutuallyExclusiveWarning, setShowMutuallyExclusiveWarning] =
+    useState(false);
 
   // Vérifier si l'événement est verrouillé
-  const isLocked = formData.verrouille
+  const isLocked = formData.verrouille;
 
   // Vérifier si l'utilisateur peut modifier cet événement
   const canEdit =
     (userRole === "admin" ||
       userRole === "manager" ||
-      (userRole === "collaborateur" && formData.collaborateurId === userCollaborateurId)) &&
-    !isLocked
+      (userRole === "collaborateur" &&
+        formData.collaborateurId === userCollaborateurId)) &&
+    !isLocked;
 
   // Vérifier si l'utilisateur peut choisir le collaborateur
-  const canSelectCollaborateur = (userRole === "admin" || userRole === "manager") && !isLocked
+  const canSelectCollaborateur =
+    (userRole === "admin" || userRole === "manager") && !isLocked;
 
   useEffect(() => {
     if (event) {
       // Si c'est un événement existant, utiliser ses valeurs
       // Déterminer le type d'événement (présence ou absence)
-      const eventType = (event.typeEvenement === "absence") ? "absence" : "presence";
-      
+      const eventType =
+        event.typeEvenement === "absence" ? "absence" : "presence";
+
       // Convertir les données au format camelCase
       const formDataWithEvent: FormData = {
         id: event.id,
         title: event.title || "",
         start: new Date(event.start),
         end: new Date(event.end),
-        collaborateurId: event.collaborateurId || (userRole === "collaborateur" && userCollaborateurId ? userCollaborateurId : ""),
+        collaborateurId:
+          event.collaborateurId ||
+          (userRole === "collaborateur" && userCollaborateurId
+            ? userCollaborateurId
+            : ""),
         typeEvenement: eventType,
         lieuChantier: event.lieuChantier || "",
         zoneTrajet: event.zoneTrajet || "",
@@ -119,13 +222,13 @@ export default function EventModal({
         prgd: Boolean(event.prgd),
         nombrePrgd: Number(event.nombrePrgd || 0),
         ticketRestaurant: Boolean(event.ticketRestaurant),
-        typeAbsence: event.typeAbsence,
+        typeAbsence: event.typeAbsence || undefined,
         verrouille: Boolean(event.verrouille),
         latitude: event.latitude,
         longitude: event.longitude,
         adresseComplete: event.adresseComplete,
       };
-      
+
       setFormData(formDataWithEvent);
 
       // Calculer la distance et la zone si les coordonnées sont disponibles
@@ -134,17 +237,20 @@ export default function EventModal({
           SIEGE_SOCIAL.latitude,
           SIEGE_SOCIAL.longitude,
           event.latitude,
-          event.longitude,
-        )
-        setCalculatedDistance(distance)
-        setCalculatedZone(determineZoneTrajet(distance))
+          event.longitude
+        );
+        setCalculatedDistance(distance);
+        setCalculatedZone(determineZoneTrajet(distance));
       } else {
-        setCalculatedDistance(null)
-        setCalculatedZone(null)
+        setCalculatedDistance(null);
+        setCalculatedZone(null);
       }
     } else {
       // Pour un nouvel événement
-      const initialCollaborateurId = userRole === "collaborateur" && userCollaborateurId ? userCollaborateurId : ""
+      const initialCollaborateurId =
+        userRole === "collaborateur" && userCollaborateurId
+          ? userCollaborateurId
+          : "";
 
       // Créer un nouvel événement avec les valeurs par défaut
       const newEvent: FormData = {
@@ -163,240 +269,209 @@ export default function EventModal({
         nombrePrgd: 0,
         ticketRestaurant: false,
         verrouille: false,
-      }
+      };
 
       // Appliquer les heures par défaut si un collaborateur est sélectionné
       if (initialCollaborateurId) {
-        const collaborateur = collaborateurs.find((c) => c.id === initialCollaborateurId)
+        const collaborateur = collaborateurs.find(
+          (c) => c.id === initialCollaborateurId
+        );
         if (collaborateur) {
-          const entreprise = collaborateur.entreprise
-          const today = new Date()
-          const isFriday = today.getDay() === 5 // 5 = vendredi
+          const entreprise = collaborateur.entreprise;
+          console.log(
+            "Initial collaborateur found:",
+            collaborateur.nom,
+            "Entreprise:",
+            entreprise
+          );
 
-          let startHour = 8,
-            startMinute = 0,
-            endHour = 17,
-            endMinute = 0
+          const today = new Date();
+          const isFriday = today.getDay() === 5; // 5 = vendredi
 
-          if (entreprise === "ORIZON TELECOM" || entreprise === "ORIZON GROUP") {
-            startHour = 8
-            startMinute = 30
+          const { start, end } = applyDefaultHours(today, entreprise, isFriday);
+          console.log(
+            "Initial hours set:",
+            `${start.getHours()}:${start.getMinutes()}`,
+            `${end.getHours()}:${end.getMinutes()}`
+          );
 
-            if (isFriday) {
-              endHour = 16
-              endMinute = 30
-            } else {
-              endHour = 17
-              endMinute = 0
-            }
-          } else if (entreprise === "ORIZON INSTALLATION") {
-            startHour = 7
-            startMinute = 30
-            endHour = 15
-            endMinute = 30
-          } else if (entreprise === "YELLEEN") {
-            startHour = 7
-            startMinute = 30
-
-            if (isFriday) {
-              endHour = 15
-              endMinute = 30
-            } else {
-              endHour = 16
-              endMinute = 30
-            }
-          }
-
-          const newStart = new Date()
-          newStart.setHours(startHour, startMinute, 0, 0)
-
-          const newEnd = new Date()
-          newEnd.setHours(endHour, endMinute, 0, 0)
-
-          newEvent.start = newStart
-          newEvent.end = newEnd
+          newEvent.start = start;
+          newEvent.end = end;
         }
       }
 
-      setFormData(newEvent)
+      setFormData(newEvent);
     }
-  }, [event, userRole, userCollaborateurId, collaborateurs])
+  }, [event, userRole, userCollaborateurId, collaborateurs]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target
-    
+    const { name, value, type, checked } = e.target;
+
     // Convertir les noms snake_case en camelCase pour le formulaire
-    const camelName = name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    
+    const camelName = name.replace(/_([a-z])/g, (_, letter) =>
+      letter.toUpperCase()
+    );
+
     setFormData({
       ...formData,
       [camelName]: type === "checkbox" ? checked : value,
-    })
-  }
+    });
+  };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    
+    const { name, value } = e.target;
+
     // Convertir les noms snake_case en camelCase pour le formulaire
-    const camelName = name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    
+    const camelName = name.replace(/_([a-z])/g, (_, letter) =>
+      letter.toUpperCase()
+    );
+
     setFormData({
       ...formData,
       [camelName]: Number.parseInt(value) || 0,
-    })
-  }
+    });
+  };
 
   const handleSelectChange = (name: string, value: string) => {
     // Convertir les noms snake_case en camelCase pour le formulaire
-    const camelName = name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    
+    const camelName = name.replace(/_([a-z])/g, (_, letter) =>
+      letter.toUpperCase()
+    );
+
     if (camelName === "collaborateurId" && value) {
       // Si le collaborateur change, mettre à jour les heures par défaut
-      const collaborateur = collaborateurs.find((c) => c.id === value)
+      const collaborateur = collaborateurs.find((c) => c.id === value);
       if (collaborateur) {
-        const entreprise = collaborateur.entreprise
-        const today = new Date()
-        const isFriday = today.getDay() === 5 // 5 = vendredi
+        const entreprise = collaborateur.entreprise;
+        console.log(
+          "Collaborateur changed to:",
+          collaborateur.nom,
+          "Entreprise:",
+          entreprise
+        );
 
-        let startHour = 8,
-          startMinute = 0,
-          endHour = 17,
-          endMinute = 0
+        const today = new Date();
+        const isFriday = today.getDay() === 5; // 5 = vendredi
 
-        if (entreprise === "ORIZON TELECOM" || entreprise === "ORIZON GROUP") {
-          startHour = 8
-          startMinute = 30
-
-          if (isFriday) {
-            endHour = 16
-            endMinute = 30
-          } else {
-            endHour = 17
-            endMinute = 0
-          }
-        } else if (entreprise === "ORIZON INSTALLATION") {
-          startHour = 7
-          startMinute = 30
-          endHour = 15
-          endMinute = 30
-        } else if (entreprise === "YELLEEN") {
-          startHour = 7
-          startMinute = 30
-
-          if (isFriday) {
-            endHour = 15
-            endMinute = 30
-          } else {
-            endHour = 16
-            endMinute = 30
-          }
-        }
-
-        const newStart = new Date()
-        newStart.setHours(startHour, startMinute, 0, 0)
-
-        const newEnd = new Date()
-        newEnd.setHours(endHour, endMinute, 0, 0)
+        // Utiliser la fonction utilitaire pour appliquer les horaires par défaut
+        const { start, end } = applyDefaultHours(today, entreprise, isFriday);
+        console.log(
+          "Hours updated on collaborateur change:",
+          `${start.getHours()}:${start.getMinutes()}`,
+          `${end.getHours()}:${end.getMinutes()}`
+        );
 
         setFormData((prev) => ({
           ...prev,
           [camelName]: value,
-          start: newStart,
-          end: newEnd,
-        }))
+          start: start,
+          end: end,
+        }));
       } else {
         setFormData((prev) => ({
           ...prev,
           [camelName]: value,
-        }))
+        }));
       }
     } else {
       setFormData((prev) => ({
         ...prev,
         [camelName]: value,
-      }))
+      }));
     }
-  }
+  };
 
   const handleCheckboxChange = (name: string, checked: boolean) => {
     // Convertir les noms snake_case en camelCase pour le formulaire
-    const camelName = name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    
+    const camelName = name.replace(/_([a-z])/g, (_, letter) =>
+      letter.toUpperCase()
+    );
+
     if (camelName === "grandDeplacement" && checked) {
       // Si on coche "Grand déplacement", on désactive le panier repas
       setFormData({
         ...formData,
         [camelName]: checked,
         panierRepas: false,
-      })
+      });
     } else if (camelName === "prgd" && !checked) {
       // Si on décoche "PRGD", on réinitialise le nombre de PRGD
       setFormData({
         ...formData,
         [camelName]: checked,
         nombrePrgd: 0,
-      })
+      });
     } else if (camelName === "prgd" && checked) {
       // Si on coche "PRGD", on initialise le nombre de PRGD à 1
       setFormData({
         ...formData,
         [camelName]: checked,
         nombrePrgd: 1,
-      })
+      });
     } else if (camelName === "panierRepas" && checked) {
       // Si on coche "Panier repas", on décoche "Ticket restaurant"
       setFormData({
         ...formData,
         [camelName]: checked,
         ticketRestaurant: false,
-      })
+      });
       // Afficher l'avertissement d'exclusion mutuelle
-      setShowMutuallyExclusiveWarning(true)
-      setTimeout(() => setShowMutuallyExclusiveWarning(false), 3000)
+      setShowMutuallyExclusiveWarning(true);
+      setTimeout(() => setShowMutuallyExclusiveWarning(false), 3000);
     } else if (camelName === "ticketRestaurant" && checked) {
       // Si on coche "Ticket restaurant", on décoche "Panier repas"
       setFormData({
         ...formData,
         [camelName]: checked,
         panierRepas: false,
-      })
+      });
       // Afficher l'avertissement d'exclusion mutuelle
-      setShowMutuallyExclusiveWarning(true)
-      setTimeout(() => setShowMutuallyExclusiveWarning(false), 3000)
+      setShowMutuallyExclusiveWarning(true);
+      setTimeout(() => setShowMutuallyExclusiveWarning(false), 3000);
     } else {
       setFormData({
         ...formData,
         [camelName]: checked,
-      })
+      });
     }
-  }
+  };
 
   const handleTimeChange = (name: string, value: string) => {
-    const [hours, minutes] = value.split(":").map(Number)
-    const newDate = new Date(name === "startTime" ? formData.start : formData.end)
-    newDate.setHours(hours)
-    newDate.setMinutes(minutes)
+    const [hours, minutes] = value.split(":").map(Number);
+    const newDate = new Date(
+      name === "startTime" ? formData.start : formData.end
+    );
+    newDate.setHours(hours);
+    newDate.setMinutes(minutes);
 
     setFormData({
       ...formData,
       [name === "startTime" ? "start" : "end"]: newDate,
-    })
-  }
+    });
+  };
 
   const formatTimeForInput = (date: Date) => {
-    return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`
-  }
+    return `${date.getHours().toString().padStart(2, "0")}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+  };
 
   // Gérer la sélection d'une adresse géolocalisée
   const handleSelectAddress = (result: GeocodingResult) => {
     // Calculer la distance entre le siège social et l'adresse sélectionnée
-    const distance = calculateDistance(SIEGE_SOCIAL.latitude, SIEGE_SOCIAL.longitude, result.latitude, result.longitude)
+    const distance = calculateDistance(
+      SIEGE_SOCIAL.latitude,
+      SIEGE_SOCIAL.longitude,
+      result.latitude,
+      result.longitude
+    );
 
     // Déterminer la zone de trajet en fonction de la distance
-    const zone = determineZoneTrajet(distance)
+    const zone = determineZoneTrajet(distance);
 
-    setCalculatedDistance(distance)
-    setCalculatedZone(zone)
+    setCalculatedDistance(distance);
+    setCalculatedZone(zone);
 
     setFormData({
       ...formData,
@@ -405,27 +480,34 @@ export default function EventModal({
       latitude: result.latitude,
       longitude: result.longitude,
       zoneTrajet: zone, // Définir automatiquement la zone de trajet
-    })
-  }
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!canEdit && userRole !== "admin") return
+    if (!canEdit && userRole !== "admin") return;
 
     // Générer un titre automatique si vide
-    let title = formData.title
+    let title = formData.title;
     if (!title) {
-      const collaborateur = collaborateurs.find((c) => c.id === formData.collaborateurId)
+      const collaborateur = collaborateurs.find(
+        (c) => c.id === formData.collaborateurId
+      );
       if (formData.typeEvenement === "presence") {
-        title = collaborateur ? `${collaborateur.nom} - ${formData.lieuChantier}` : formData.lieuChantier
+        title = collaborateur
+          ? `${collaborateur.nom} - ${formData.lieuChantier}`
+          : formData.lieuChantier;
       } else {
-        title = collaborateur ? `${collaborateur.nom} - ${formData.typeAbsence}` : `${formData.typeAbsence}`
+        title = collaborateur
+          ? `${collaborateur.nom} - ${formData.typeAbsence}`
+          : `${formData.typeAbsence}`;
       }
     }
 
     // S'assurer que le type d'événement est bien "presence" ou "absence"
-    const eventType = formData.typeEvenement === "absence" ? "absence" : "presence";
+    const eventType =
+      formData.typeEvenement === "absence" ? "absence" : "presence";
 
     // Créer un objet au format camelCase pour le schéma Prisma
     const eventToSave = {
@@ -434,23 +516,42 @@ export default function EventModal({
       typeEvenement: eventType,
     };
 
-    onSave(eventToSave as Evenement)
-  }
+    onSave(eventToSave as Evenement);
+  };
 
   // Liste des zones de trajet
-  const zonesTrajet = ["1A", "1B", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"]
+  const zonesTrajet = [
+    "1A",
+    "1B",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+  ];
 
   // Liste des types d'absence
-  const typesAbsence: TypeAbsence[] = [
+  const typesAbsence = [
     "RTT",
     "CP",
     "CSS",
     "Abs Inj",
-    "Accident Travail",
     "Arrêt Travail",
-    "CFA",
-    "Congé Pater",
-  ]
+    // Ajoutez ces types à la définition de TypeAbsence dans lib/types.ts
+    // ou utilisez type assertion pour éviter les erreurs
+    "Accident Travail" as TypeAbsence,
+    "CFA" as TypeAbsence,
+    "Congé Pater" as TypeAbsence,
+  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -460,8 +561,8 @@ export default function EventModal({
             {event && event.id
               ? "Modifier l'événement"
               : formData.typeEvenement === "presence"
-                ? "Ajouter une présence"
-                : "Ajouter une absence"}
+              ? "Ajouter une présence"
+              : "Ajouter une absence"}
             {isLocked && (
               <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
                 <Lock className="mr-1 h-3 w-3" />
@@ -472,10 +573,11 @@ export default function EventModal({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           {showMutuallyExclusiveWarning && (
-            <Alert variant="warning">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Vous ne pouvez pas sélectionner à la fois Panier repas et Ticket restaurant.
+                Vous ne pouvez pas sélectionner à la fois Panier repas et Ticket
+                restaurant.
               </AlertDescription>
             </Alert>
           )}
@@ -487,8 +589,14 @@ export default function EventModal({
               <div className="col-span-3">
                 <Select
                   value={formData.collaborateurId}
-                  onValueChange={(value) => handleSelectChange("collaborateurId", value)}
-                  disabled={!canSelectCollaborateur || (userRole === "collaborateur" && !!userCollaborateurId)}
+                  onValueChange={(value) =>
+                    handleSelectChange("collaborateurId", value)
+                  }
+                  disabled={
+                    !canSelectCollaborateur ||
+                    (userRole === ("collaborateur" as Role) &&
+                      !!userCollaborateurId)
+                  }
                   required
                 >
                   <SelectTrigger>
@@ -496,7 +604,10 @@ export default function EventModal({
                   </SelectTrigger>
                   <SelectContent>
                     {collaborateurs.map((collaborateur) => (
-                      <SelectItem key={collaborateur.id} value={collaborateur.id}>
+                      <SelectItem
+                        key={collaborateur.id}
+                        value={collaborateur.id}
+                      >
                         {collaborateur.nom}
                       </SelectItem>
                     ))}
@@ -509,26 +620,36 @@ export default function EventModal({
               <Label className="text-right">Plage horaire</Label>
               <div className="col-span-3 grid grid-cols-2 gap-2">
                 <div>
-                  <Label htmlFor="startTime" className="text-xs text-muted-foreground">
+                  <Label
+                    htmlFor="startTime"
+                    className="text-xs text-muted-foreground"
+                  >
                     Début
                   </Label>
                   <Input
                     id="startTime"
                     type="time"
                     value={formatTimeForInput(formData.start)}
-                    onChange={(e) => handleTimeChange("startTime", e.target.value)}
+                    onChange={(e) =>
+                      handleTimeChange("startTime", e.target.value)
+                    }
                     disabled={!canEdit && userRole !== "admin"}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="endTime" className="text-xs text-muted-foreground">
+                  <Label
+                    htmlFor="endTime"
+                    className="text-xs text-muted-foreground"
+                  >
                     Fin
                   </Label>
                   <Input
                     id="endTime"
                     type="time"
                     value={formatTimeForInput(formData.end)}
-                    onChange={(e) => handleTimeChange("endTime", e.target.value)}
+                    onChange={(e) =>
+                      handleTimeChange("endTime", e.target.value)
+                    }
                     disabled={!canEdit && userRole !== "admin"}
                   />
                 </div>
@@ -558,7 +679,9 @@ export default function EventModal({
                 <div className="grid grid-cols-4 items-start gap-4">
                   <Label className="text-right pt-2">
                     Adresse complète
-                    <div className="text-xs font-normal text-muted-foreground mt-1">Géolocalisation</div>
+                    <div className="text-xs font-normal text-muted-foreground mt-1">
+                      Géolocalisation
+                    </div>
                   </Label>
                   <div className="col-span-3">
                     <AddressSearch
@@ -569,7 +692,8 @@ export default function EventModal({
                     {formData.latitude && formData.longitude && (
                       <div className="mt-2 text-xs text-muted-foreground flex items-center">
                         <MapPin className="h-3 w-3 mr-1" />
-                        Coordonnées: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                        Coordonnées: {formData.latitude.toFixed(6)},{" "}
+                        {formData.longitude.toFixed(6)}
                       </div>
                     )}
 
@@ -601,7 +725,9 @@ export default function EventModal({
                   <div className="col-span-3">
                     <Select
                       value={formData.zoneTrajet || ""}
-                      onValueChange={(value) => handleSelectChange("zoneTrajet", value)}
+                      onValueChange={(value) =>
+                        handleSelectChange("zoneTrajet", value)
+                      }
                       disabled={!canEdit && userRole !== "admin"}
                     >
                       <SelectTrigger>
@@ -612,9 +738,14 @@ export default function EventModal({
                           <SelectItem
                             key={zone}
                             value={zone}
-                            className={calculatedZone === zone ? "font-bold bg-blue-50" : ""}
+                            className={
+                              calculatedZone === zone
+                                ? "font-bold bg-blue-50"
+                                : ""
+                            }
                           >
-                            Zone {zone} {calculatedZone === zone ? "(suggérée)" : ""}
+                            Zone {zone}{" "}
+                            {calculatedZone === zone ? "(suggérée)" : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -632,7 +763,7 @@ export default function EventModal({
                         setFormData({
                           ...formData,
                           heuresSupplementaires: Number.parseFloat(value),
-                        })
+                        });
                       }}
                       disabled={!canEdit && userRole !== "admin"}
                     >
@@ -661,8 +792,12 @@ export default function EventModal({
                     </Select>
                     {formData.heuresSupplementaires > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {formData.heuresSupplementaires} {formData.heuresSupplementaires > 1 ? "heures" : "heure"}{" "}
-                        supplémentaire{formData.heuresSupplementaires > 1 ? "s" : ""}
+                        {formData.heuresSupplementaires}{" "}
+                        {formData.heuresSupplementaires > 1
+                          ? "heures"
+                          : "heure"}{" "}
+                        supplémentaire
+                        {formData.heuresSupplementaires > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
@@ -674,33 +809,61 @@ export default function EventModal({
                       <Checkbox
                         id="grandDeplacement"
                         checked={formData.grandDeplacement}
-                        onCheckedChange={(checked) => handleCheckboxChange("grandDeplacement", checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange(
+                            "grandDeplacement",
+                            checked as boolean
+                          )
+                        }
                         disabled={!canEdit && userRole !== "admin"}
                       />
-                      <Label htmlFor="grandDeplacement">Grand déplacement</Label>
+                      <Label htmlFor="grandDeplacement">
+                        Grand déplacement
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="panierRepas"
                         checked={formData.panierRepas}
-                        onCheckedChange={(checked) => handleCheckboxChange("panierRepas", checked as boolean)}
-                        disabled={(!canEdit && userRole !== "admin") || formData.grandDeplacement}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange(
+                            "panierRepas",
+                            checked as boolean
+                          )
+                        }
+                        disabled={
+                          (!canEdit && userRole !== "admin") ||
+                          formData.grandDeplacement
+                        }
                       />
                       <Label
                         htmlFor="panierRepas"
-                        className={formData.grandDeplacement ? "text-muted-foreground" : ""}
+                        className={
+                          formData.grandDeplacement
+                            ? "text-muted-foreground"
+                            : ""
+                        }
                       >
-                        Panier repas {formData.grandDeplacement && "(Non disponible avec grand déplacement)"}
+                        Panier repas{" "}
+                        {formData.grandDeplacement &&
+                          "(Non disponible avec grand déplacement)"}
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="ticketRestaurant"
                         checked={formData.ticketRestaurant}
-                        onCheckedChange={(checked) => handleCheckboxChange("ticketRestaurant", checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange(
+                            "ticketRestaurant",
+                            checked as boolean
+                          )
+                        }
                         disabled={!canEdit && userRole !== "admin"}
                       />
-                      <Label htmlFor="ticketRestaurant">Ticket Restaurant</Label>
+                      <Label htmlFor="ticketRestaurant">
+                        Ticket Restaurant
+                      </Label>
                     </div>
 
                     {/* Section PRGD toujours visible */}
@@ -709,7 +872,9 @@ export default function EventModal({
                         <Checkbox
                           id="prgd"
                           checked={formData.prgd}
-                          onCheckedChange={(checked) => handleCheckboxChange("prgd", checked as boolean)}
+                          onCheckedChange={(checked) =>
+                            handleCheckboxChange("prgd", checked as boolean)
+                          }
                           disabled={!canEdit && userRole !== "admin"}
                         />
                         <Label htmlFor="prgd">PRGD</Label>
@@ -718,7 +883,10 @@ export default function EventModal({
                       {/* Compteur PRGD qui apparaît uniquement si PRGD est coché */}
                       {formData.prgd && (
                         <div className="ml-6 mt-2">
-                          <Label htmlFor="nombrePrgd" className="text-sm mb-1 block">
+                          <Label
+                            htmlFor="nombrePrgd"
+                            className="text-sm mb-1 block"
+                          >
                             Nombre de PRGD (max 2)
                           </Label>
                           <Input
@@ -747,7 +915,9 @@ export default function EventModal({
                 <div className="col-span-3">
                   <RadioGroup
                     value={formData.typeAbsence || ""}
-                    onValueChange={(value) => handleSelectChange("typeAbsence", value)}
+                    onValueChange={(value) =>
+                      handleSelectChange("typeAbsence", value)
+                    }
                     className="grid grid-cols-2 gap-2"
                     required
                     disabled={!canEdit && userRole !== "admin"}
@@ -765,7 +935,11 @@ export default function EventModal({
           </div>
           <DialogFooter className="flex justify-between">
             {event && event.id && (canEdit || userRole === "admin") && (
-              <Button type="button" variant="destructive" onClick={() => onDelete(event.id)}>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => onDelete(event.id)}
+              >
                 Supprimer
               </Button>
             )}
@@ -781,5 +955,5 @@ export default function EventModal({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

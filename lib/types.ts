@@ -1,5 +1,13 @@
 export type TypeEvenement = "presence" | "absence" | "formation" | "autre";
-export type TypeAbsence = "CP" | "RTT" | "CSS" | "Arrêt Travail" | "Abs Inj";
+export type TypeAbsence =
+  | "CP"
+  | "RTT"
+  | "CSS"
+  | "Arrêt Travail"
+  | "Abs Inj"
+  | "Accident Travail"
+  | "CFA"
+  | "Congé Pater";
 export type ZoneTrajet = "Zone 1" | "Zone 2" | "Zone 3" | "Zone 4" | "Zone 5";
 export type Role = "admin" | "manager" | "collaborateur";
 
