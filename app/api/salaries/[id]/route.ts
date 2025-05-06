@@ -46,13 +46,13 @@ export async function GET(
       nom: nom,
       prenom: prenom,
       dateEntree: ficheDePoste.dateCreation,
-      email: "",
-      telephone: "",
-      adresse: "",
-      codePostal: "",
-      ville: "",
-      dateNaissance: null,
-      numeroSecu: "",
+      email: ficheDePoste.email || "",
+      telephone: ficheDePoste.telephone || "",
+      adresse: ficheDePoste.adresse || "",
+      codePostal: ficheDePoste.codePostal || "",
+      ville: ficheDePoste.ville || "",
+      dateNaissance: ficheDePoste.dateNaissance || null,
+      numeroSecu: ficheDePoste.numeroSecu || "",
     };
 
     return NextResponse.json(formattedResponse);
@@ -76,8 +76,22 @@ export async function PATCH(
   const params = await props.params;
   try {
     const ficheId = params.id;
+    console.log("PATCH /api/salaries/[id] - ID de la fiche:", ficheId);
+
+    // Vérifier si l'ID est valide
+    if (!ficheId) {
+      console.error("ID de fiche invalide:", ficheId);
+      return NextResponse.json(
+        { error: "ID de fiche invalide" },
+        { status: 400 }
+      );
+    }
+
     const requestData = await req.json();
-    console.log("PATCH /api/salaries/[id] - Données reçues:", requestData);
+    console.log(
+      "PATCH /api/salaries/[id] - Données reçues:",
+      JSON.stringify(requestData, null, 2)
+    );
 
     // Vérifier si la fiche de poste existe
     const existingFiche = await prisma.ficheDePoste.findUnique({
@@ -86,6 +100,38 @@ export async function PATCH(
         collaborateur: true,
       },
     });
+
+    if (!existingFiche) {
+      console.error("Fiche non trouvée pour l'ID:", ficheId);
+
+      // Si c'est un ID temporaire, on crée une nouvelle fiche au lieu de renvoyer une erreur
+      const isTemporaryId =
+        ficheId.startsWith("temp_") || /^\d+$/.test(ficheId);
+
+      if (isTemporaryId) {
+        console.log("ID temporaire détecté, création d'une nouvelle fiche");
+        // Redirection vers l'endpoint POST pour créer une nouvelle fiche
+        const url = new URL(req.url);
+        url.pathname = "/api/salaries";
+
+        // Création d'une nouvelle requête avec la méthode POST
+        const newRequest = new Request(url, {
+          method: "POST",
+          headers: req.headers,
+          body: JSON.stringify(requestData),
+        });
+
+        // Redirection vers l'API POST
+        return fetch(newRequest);
+      }
+
+      return NextResponse.json(
+        { error: "Fiche de poste non trouvée" },
+        { status: 404 }
+      );
+    } else {
+      console.log("Fiche existante trouvée:", existingFiche.id);
+    }
 
     // Extraire les données de la requête
     const {
@@ -118,6 +164,14 @@ export async function PATCH(
       lieuTravail,
     } = requestData;
 
+    console.log("Données extraites de la requête:");
+    console.log("Nom:", nom);
+    console.log("Prénom:", prenom);
+    console.log("Téléphone reçu:", telephone);
+    console.log("Email:", email);
+    console.log("Classification:", classification);
+    console.log("Poste:", poste);
+
     // Préparer les données pour la fiche de poste
     const ficheDePosteData = {
       classification: classification || "Non spécifiée",
@@ -136,6 +190,13 @@ export async function PATCH(
       avantages,
       horaires,
       lieuTravail,
+      email: email || "",
+      telephone: telephone || "",
+      adresse: adresse || "",
+      codePostal: codePostal || "",
+      ville: ville || "",
+      dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
+      numeroSecu: numeroSecu || "",
       dateModification: new Date(),
     };
 
@@ -269,6 +330,25 @@ export async function PATCH(
       numeroSecu: numeroSecu || "",
     };
 
+    // S'assurer que le nom et prénom ne sont pas vides
+    if (!formattedResponse.nom || !formattedResponse.prenom) {
+      console.error("ERREUR: Nom ou prénom manquant dans la réponse formatée");
+      console.log("Nom original:", nom);
+      console.log("Prénom original:", prenom);
+
+      // Forcer les valeurs si elles sont vides
+      formattedResponse.nom = nom || "ERREUR NOM MANQUANT";
+      formattedResponse.prenom = prenom || "ERREUR PRENOM MANQUANT";
+    }
+
+    // Vérifier le téléphone dans la réponse formatée
+    console.log(
+      "Téléphone dans la réponse formatée:",
+      formattedResponse.telephone
+    );
+    console.log("Valeur brute du téléphone:", telephone);
+
+    console.log("Réponse formatée:", formattedResponse);
     console.log("Fiche de poste mise à jour/créée avec succès");
     return NextResponse.json(formattedResponse);
   } catch (error) {

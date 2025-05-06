@@ -243,8 +243,21 @@ export default function PersonnelPage() {
     try {
       console.log("==== DÉBUT SAUVEGARDE SALARIÉ ====");
       console.log("Données du salarié:", salarie);
+      console.log("ID du salarié:", salarie.id);
       console.log("ID du collaborateur:", salarie.collaborateur?.id);
-      console.log("Début de handleSaveSalarie", salarie);
+      console.log("Nom:", salarie.nom);
+      console.log("Prénom:", salarie.prenom);
+
+      // Vérifier que les données essentielles sont présentes
+      if (!salarie.nom || !salarie.prenom) {
+        toast({
+          title: "Données manquantes",
+          description: "Le nom et le prénom sont obligatoires",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const ficheId = salarie.id;
       setActionLoading("save", ficheId, true);
       let response;
@@ -265,7 +278,7 @@ export default function PersonnelPage() {
         dateCreation: new Date(),
         dateModification: new Date(),
         estActive: true,
-        collaborateurId: salarie.collaborateur?.id || null,
+        collaborateurId: salarie.collaborateur?.id || undefined,
         // Autres champs optionnels
         experience: undefined,
         formation: undefined,
@@ -275,42 +288,78 @@ export default function PersonnelPage() {
         lieuTravail: undefined,
       };
 
-      if (salarie.id && !salarie.id.startsWith("temp_")) {
+      const bodyData = {
+        ...ficheDePosteData,
+        nom: salarie.nom,
+        prenom: salarie.prenom,
+        email: salarie.email,
+        telephone: salarie.telephone,
+        adresse: salarie.adresse,
+        codePostal: salarie.codePostal,
+        ville: salarie.ville,
+        dateNaissance: salarie.dateNaissance,
+        numeroSecu: salarie.numeroSecu,
+        dateEntree: salarie.dateEntree,
+      };
+
+      console.log("Données à envoyer:", JSON.stringify(bodyData, null, 2));
+      console.log("Téléphone à envoyer:", salarie.telephone);
+
+      // Vérifier si c'est une nouvelle fiche ou une mise à jour
+      // Un ID existant dans la base de données ne commencera pas par un nombre (comme Date.now())
+      const isNewFiche =
+        !salarie.id ||
+        /^\d+$/.test(salarie.id) ||
+        salarie.id.startsWith("temp_");
+
+      if (!isNewFiche) {
         // Mise à jour d'une fiche existante
         console.log("Mise à jour d'une fiche de poste existante");
 
         const endpoint = `/api/salaries/${salarie.id}`;
         console.log("Endpoint utilisé:", endpoint);
 
-        response = await fetch(endpoint, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...ficheDePosteData,
-            nom: salarie.nom,
-            prenom: salarie.prenom,
-            email: salarie.email,
-            telephone: salarie.telephone,
-            adresse: salarie.adresse,
-            codePostal: salarie.codePostal,
-            ville: salarie.ville,
-            dateNaissance: salarie.dateNaissance,
-            numeroSecu: salarie.numeroSecu,
-            dateEntree: salarie.dateEntree,
-          }),
-        });
+        try {
+          response = await fetch(endpoint, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(bodyData),
+          });
 
-        console.log("Réponse reçue", response.status);
+          console.log("Réponse reçue - statut:", response.status);
+          console.log("Réponse reçue - ok:", response.ok);
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Erreur API:", errorData);
-          throw new Error(
-            errorData.error ||
-              "Une erreur est survenue lors de l'enregistrement de la fiche de poste"
-          );
+          // Essayer de lire le corps brut de la réponse
+          const rawResponse = await response.text();
+          console.log("Réponse brute:", rawResponse);
+
+          // Convertir en JSON si possible
+          try {
+            const jsonResponse = JSON.parse(rawResponse);
+            console.log("Réponse JSON parsée:", jsonResponse);
+
+            if (!response.ok) {
+              throw new Error(
+                jsonResponse.error ||
+                  `Erreur HTTP: ${response.status} - ${response.statusText}`
+              );
+            }
+
+            // Utilisez jsonResponse au lieu de faire un autre await response.json()
+            return jsonResponse;
+          } catch (parseError) {
+            console.error("Erreur de parsing JSON:", parseError);
+            if (!response.ok) {
+              throw new Error(
+                `Erreur HTTP: ${response.status} - ${response.statusText}`
+              );
+            }
+          }
+        } catch (fetchError) {
+          console.error("Erreur fetch détaillée:", fetchError);
+          throw fetchError;
         }
       } else {
         // Création d'une nouvelle fiche de poste
@@ -356,17 +405,21 @@ export default function PersonnelPage() {
       );
       console.log("Objet Collaborateur:", savedFiche.collaborateur);
 
+      // Vérifier que les données essentielles sont bien présentes dans la réponse
+      if (!savedFiche.nom || !savedFiche.prenom) {
+        console.warn(
+          "Attention: Nom ou prénom manquant dans la réponse de l'API"
+        );
+        // On conserve les valeurs d'origine
+        savedFiche.nom = salarie.nom;
+        savedFiche.prenom = salarie.prenom;
+      }
+
       // Adapter le format de la réponse pour correspondre à ce qu'attend l'interface
       const processedFiche: SalarieWithCollaborateur = {
         ...savedFiche,
-        nom:
-          savedFiche.nom ||
-          savedFiche.collaborateur?.nom?.split(" ").slice(0, -1).join(" ") ||
-          "",
-        prenom:
-          savedFiche.prenom ||
-          savedFiche.collaborateur?.nom?.split(" ").pop() ||
-          "",
+        nom: savedFiche.nom || salarie.nom, // Utiliser les données d'origine si manquantes
+        prenom: savedFiche.prenom || salarie.prenom, // Utiliser les données d'origine si manquantes
         dateEntree:
           savedFiche.dateEntree || savedFiche.dateCreation
             ? new Date(savedFiche.dateEntree || savedFiche.dateCreation)

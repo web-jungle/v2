@@ -1,84 +1,170 @@
-import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { verifyToken } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+
+// Middleware d'authentification
+async function authenticate(request: Request) {
+  // Extraire le token du header Authorization
+  const authHeader = request.headers.get("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.substring(7); // Enlever "Bearer " du début
+
+  // Vérifier le token
+  const payload = await verifyToken(token);
+  return payload;
+}
 
 // GET /api/conges - Récupérer toutes les demandes de congés
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Vérification d'authentification et autorisation
+    const authPayload = await authenticate(request);
+
+    if (!authPayload) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
+    // Récupérer les paramètres de l'URL
+    const url = new URL(request.url);
+    const collaborateurId = url.searchParams.get("collaborateur_id");
+
+    console.log("GET /api/conges - Récupération des demandes de congés");
+    console.log("Filtre par collaborateur_id:", collaborateurId);
+
+    // Définir les conditions de filtre
+    const whereCondition = collaborateurId
+      ? { collaborateurId: collaborateurId }
+      : {};
+
+    // Récupération des demandes de congés avec filtrage
     const demandesConges = await prisma.demandeConge.findMany({
-      include: {
-        utilisateur: true,
-        collaborateur: true,
-        notifications: true,
+      where: whereCondition,
+      orderBy: {
+        dateModification: "desc",
       },
-    })
+      include: {
+        utilisateur: {
+          select: {
+            role: true,
+          },
+        },
+        collaborateur: true,
+      },
+    });
 
-    // Convertir les dates en objets Date pour la compatibilité avec le code existant
-    const formattedDemandesConges = demandesConges.map((demande) => ({
-      ...demande,
-      dateDebut: new Date(demande.dateDebut),
-      dateFin: new Date(demande.dateFin),
-      dateCreation: new Date(demande.dateCreation),
-      dateModification: new Date(demande.dateModification),
-    }))
+    console.log(`${demandesConges.length} demandes de congés trouvées`);
 
-    return NextResponse.json(formattedDemandesConges)
+    if (collaborateurId) {
+      console.log(`Filtrées pour le collaborateur: ${collaborateurId}`);
+    }
+
+    return NextResponse.json(demandesConges);
   } catch (error) {
-    console.error("Erreur lors de la récupération des demandes de congés:", error)
-    return NextResponse.json({ error: "Erreur lors de la récupération des demandes de congés" }, { status: 500 })
+    console.error(
+      "Erreur lors de la récupération des demandes de congés:",
+      error
+    );
+    return NextResponse.json(
+      { error: "Impossible de récupérer les demandes de congés" },
+      { status: 500 }
+    );
   }
 }
 
 // POST /api/conges - Créer une nouvelle demande de congé
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const data = await request.json()
+    // Vérification d'authentification
+    const authPayload = await authenticate(req);
 
-    // Convertir les dates en format ISO pour Prisma
-    const demandeData = {
-      ...data,
-      dateDebut: new Date(data.dateDebut),
-      dateFin: new Date(data.dateFin),
-      dateCreation: new Date(),
-      dateModification: new Date(),
+    if (!authPayload) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    const demandeConge = await prisma.demandeConge.create({
-      data: demandeData,
+    const requestData = await req.json();
+    console.log("POST /api/conges - Données reçues:", requestData);
+
+    // Extraction des données de la demande
+    const {
+      utilisateurId,
+      collaborateurId,
+      dateDebut,
+      dateFin,
+      typeConge,
+      motif,
+    } = requestData;
+
+    // Vérification des données requises
+    if (
+      !utilisateurId ||
+      !collaborateurId ||
+      !dateDebut ||
+      !dateFin ||
+      !typeConge ||
+      !motif
+    ) {
+      return NextResponse.json(
+        { error: "Données insuffisantes pour créer une demande de congé" },
+        { status: 400 }
+      );
+    }
+
+    // Récupérer les informations du collaborateur depuis la base de données
+    const collaborateur = await prisma.collaborateur.findUnique({
+      where: {
+        id: collaborateurId,
+      },
+    });
+
+    if (!collaborateur) {
+      return NextResponse.json(
+        { error: "Collaborateur non trouvé" },
+        { status: 404 }
+      );
+    }
+
+    // Utiliser le nom du collaborateur depuis la base de données
+    const collaborateurNom = collaborateur.nom;
+    console.log(
+      `Utilisation du nom de collaborateur depuis la BD: ${collaborateurNom}`
+    );
+
+    // Création de la demande de congé
+    const nouvelleDemandeConge = await prisma.demandeConge.create({
+      data: {
+        utilisateurId,
+        collaborateurId,
+        collaborateurNom,
+        dateDebut: new Date(dateDebut),
+        dateFin: new Date(dateFin),
+        typeConge,
+        motif,
+        statut: "En attente",
+        dateCreation: new Date(),
+        dateModification: new Date(),
+        notificationLue: false,
+      },
       include: {
-        utilisateur: true,
+        utilisateur: {
+          select: {
+            role: true,
+          },
+        },
         collaborateur: true,
       },
-    })
+    });
 
-    // Créer une notification pour l'administrateur
-    await prisma.notification.create({
-      data: {
-        utilisateurId: "1", // ID de l'administrateur
-        message: `Nouvelle demande de congés de ${demandeConge.collaborateurNom}`,
-        lien: `/rh/conges?id=${demandeConge.id}`,
-        dateCreation: new Date(),
-        lue: false,
-        type: "conge",
-        demandeId: demandeConge.id,
-      },
-    })
-
-    // Créer une notification pour l'utilisateur qui a fait la demande
-    await prisma.notification.create({
-      data: {
-        utilisateurId: demandeConge.utilisateurId,
-        message: "Votre demande de congés est en attente de validation",
-        lien: `/rh/conges?id=${demandeConge.id}`,
-        dateCreation: new Date(),
-        lue: true,
-        type: "conge",
-        demandeId: demandeConge.id,
-      },
-    })
-
-    return NextResponse.json(demandeConge, { status: 201 })
+    console.log("Nouvelle demande de congé créée:", nouvelleDemandeConge.id);
+    return NextResponse.json(nouvelleDemandeConge);
   } catch (error) {
-    console.error("Erreur lors de la création de la demande de congé:", error)
-    return NextResponse.json({ error: "Erreur lors de la création de la demande de congé" }, { status: 500 })
+    console.error("Erreur lors de la création de la demande de congé:", error);
+    return NextResponse.json(
+      { error: "Impossible de créer la demande de congé" },
+      { status: 500 }
+    );
   }
 }

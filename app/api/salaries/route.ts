@@ -46,8 +46,11 @@ export async function GET() {
         habilitations: fiche.habilitations,
         entreprise: fiche.entreprise,
         poste: fiche.poste,
-        email: "", // Pas disponible dans FicheDePoste
-        telephone: "", // Pas disponible dans FicheDePoste
+        email: fiche.email || "",
+        telephone: fiche.telephone || "",
+        adresse: fiche.adresse || "",
+        codePostal: fiche.codePostal || "",
+        ville: fiche.ville || "",
         collaborateur: fiche.collaborateur,
         collaborateurId: fiche.collaborateurId,
         // Champs spécifiques à FicheDePoste
@@ -63,6 +66,8 @@ export async function GET() {
         dateCreation: fiche.dateCreation,
         dateModification: fiche.dateModification,
         estActive: fiche.estActive,
+        dateNaissance: fiche.dateNaissance,
+        numeroSecu: fiche.numeroSecu || "",
       };
     });
 
@@ -96,6 +101,13 @@ export async function POST(req: Request) {
       habilitations,
       entreprise,
       poste,
+      email,
+      telephone,
+      adresse,
+      codePostal,
+      ville,
+      dateNaissance,
+      numeroSecu,
       collaborateurId,
       competencesRequises = [],
       description = `Fiche de poste pour ${nom} ${prenom}`,
@@ -129,6 +141,13 @@ export async function POST(req: Request) {
       dateCreation: new Date(),
       dateModification: new Date(),
       estActive: true,
+      email: email || "",
+      telephone: telephone || "",
+      adresse: adresse || "",
+      codePostal: codePostal || "",
+      ville: ville || "",
+      dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
+      numeroSecu: numeroSecu || "",
     };
 
     // Gestion du collaborateur associé
@@ -220,13 +239,6 @@ export async function POST(req: Request) {
         "",
       prenom: prenom || ficheDePoste.collaborateur?.nom?.split(" ").pop() || "",
       dateEntree: dateEntree || ficheDePoste.dateCreation,
-      email: requestData.email || "",
-      telephone: requestData.telephone || "",
-      adresse: requestData.adresse || "",
-      codePostal: requestData.codePostal || "",
-      ville: requestData.ville || "",
-      dateNaissance: requestData.dateNaissance,
-      numeroSecu: requestData.numeroSecu || "",
     };
 
     return NextResponse.json(formattedResponse);

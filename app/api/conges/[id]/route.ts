@@ -1,109 +1,215 @@
-import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { verifyToken } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
-// GET /api/conges/[id] - Récupérer une demande de congé par son ID
-export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+// Middleware d'authentification
+async function authenticate(request: Request) {
+  // Extraire le token du header Authorization
+  const authHeader = request.headers.get("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.substring(7); // Enlever "Bearer " du début
+
+  // Vérifier le token
+  const payload = await verifyToken(token);
+  return payload;
+}
+
+// GET /api/conges/[id] - Récupérer une demande de congés spécifique
+export async function GET(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
+    // Vérification d'authentification
+    const authPayload = await authenticate(req);
+
+    if (!authPayload) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
+    const id = params.id;
+    console.log("GET /api/conges/[id] - Récupération de la demande:", id);
+
+    // Récupérer la demande de congés
     const demandeConge = await prisma.demandeConge.findUnique({
-      where: {
-        id: params.id,
-      },
+      where: { id },
       include: {
-        utilisateur: true,
+        utilisateur: {
+          select: {
+            role: true,
+          },
+        },
         collaborateur: true,
-        notifications: true,
       },
-    })
+    });
 
     if (!demandeConge) {
-      return NextResponse.json({ error: "Demande de congé non trouvée" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Demande de congés non trouvée" },
+        { status: 404 }
+      );
     }
 
-    // Convertir les dates en objets Date pour la compatibilité avec le code existant
-    const formattedDemandeConge = {
-      ...demandeConge,
-      dateDebut: new Date(demandeConge.dateDebut),
-      dateFin: new Date(demandeConge.dateFin),
-      dateCreation: new Date(demandeConge.dateCreation),
-      dateModification: new Date(demandeConge.dateModification),
-    }
-
-    return NextResponse.json(formattedDemandeConge)
+    return NextResponse.json(demandeConge);
   } catch (error) {
-    console.error("Erreur lors de la récupération de la demande de congé:", error)
-    return NextResponse.json({ error: "Erreur lors de la récupération de la demande de congé" }, { status: 500 })
+    console.error(
+      "Erreur lors de la récupération de la demande de congés:",
+      error
+    );
+    return NextResponse.json(
+      { error: "Impossible de récupérer la demande de congés" },
+      { status: 500 }
+    );
   }
 }
 
-// PUT /api/conges/[id] - Mettre à jour une demande de congé
-export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+// PATCH /api/conges/[id] - Mettre à jour une demande de congés (généralement son statut)
+export async function PATCH(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
-    const data = await request.json()
+    // Vérification d'authentification
+    const authPayload = await authenticate(req);
 
-    // Convertir les dates en format ISO pour Prisma
-    const demandeData = {
-      ...data,
-      dateDebut: new Date(data.dateDebut),
-      dateFin: new Date(data.dateFin),
-      dateModification: new Date(),
+    if (!authPayload) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    const demandeConge = await prisma.demandeConge.update({
-      where: {
-        id: params.id,
-      },
-      data: demandeData,
+    const id = params.id;
+    const requestData = await req.json();
+    console.log("PATCH /api/conges/[id] - Données reçues:", requestData);
+
+    // Vérifier si la demande existe
+    const existingDemande = await prisma.demandeConge.findUnique({
+      where: { id },
+    });
+
+    if (!existingDemande) {
+      return NextResponse.json(
+        { error: "Demande de congés non trouvée" },
+        { status: 404 }
+      );
+    }
+
+    // Extraire les données à mettre à jour
+    const { statut, commentaireAdmin, dateDebut, dateFin, typeConge, motif } =
+      requestData;
+
+    // Préparer les données pour la mise à jour
+    const updateData: any = {
+      dateModification: new Date(),
+    };
+
+    // Ajouter les champs à mettre à jour
+    if (statut !== undefined) updateData.statut = statut;
+    if (commentaireAdmin !== undefined)
+      updateData.commentaireAdmin = commentaireAdmin;
+    if (dateDebut !== undefined) updateData.dateDebut = new Date(dateDebut);
+    if (dateFin !== undefined) updateData.dateFin = new Date(dateFin);
+    if (typeConge !== undefined) updateData.typeConge = typeConge;
+    if (motif !== undefined) updateData.motif = motif;
+
+    // Mettre à jour la demande
+    const updatedDemande = await prisma.demandeConge.update({
+      where: { id },
+      data: updateData,
       include: {
-        utilisateur: true,
+        utilisateur: {
+          select: {
+            role: true,
+          },
+        },
         collaborateur: true,
       },
-    })
+    });
 
-    // Si le statut a changé, créer une notification pour l'utilisateur
-    if (data.statut === "Approuvé" || data.statut === "Refusé") {
+    // Si le statut a changé, marquer la notification comme non lue pour l'utilisateur
+    if (statut !== undefined && statut !== existingDemande.statut) {
       await prisma.notification.create({
         data: {
-          utilisateurId: demandeConge.utilisateurId,
-          message: `Votre demande de congés a été ${data.statut.toLowerCase()}`,
-          lien: `/rh/conges?id=${demandeConge.id}`,
+          utilisateurId: existingDemande.utilisateurId,
+          message: `Votre demande de congés a été ${statut.toLowerCase()}`,
+          lien: `/rh/conges?id=${id}`,
           dateCreation: new Date(),
           lue: false,
           type: "conge",
-          demandeId: demandeConge.id,
+          demandeId: id,
         },
-      })
+      });
     }
 
-    return NextResponse.json(demandeConge)
+    console.log("Demande de congés mise à jour avec succès:", id);
+    return NextResponse.json(updatedDemande);
   } catch (error) {
-    console.error("Erreur lors de la mise à jour de la demande de congé:", error)
-    return NextResponse.json({ error: "Erreur lors de la mise à jour de la demande de congé" }, { status: 500 })
+    console.error(
+      "Erreur lors de la mise à jour de la demande de congés:",
+      error
+    );
+    return NextResponse.json(
+      { error: "Impossible de mettre à jour la demande de congés" },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE /api/conges/[id] - Supprimer une demande de congé
-export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+// DELETE /api/conges/[id] - Supprimer une demande de congés
+export async function DELETE(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
+    // Vérification d'authentification
+    const authPayload = await authenticate(req);
+
+    if (!authPayload) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
+    const id = params.id;
+    console.log("DELETE /api/conges/[id] - Suppression de la demande:", id);
+
+    // Vérifier si la demande existe
+    const existingDemande = await prisma.demandeConge.findUnique({
+      where: { id },
+    });
+
+    if (!existingDemande) {
+      return NextResponse.json(
+        { error: "Demande de congés non trouvée" },
+        { status: 404 }
+      );
+    }
+
     // Supprimer d'abord les notifications associées
     await prisma.notification.deleteMany({
-      where: {
-        demandeId: params.id,
-      },
-    })
+      where: { demandeId: id },
+    });
 
-    // Ensuite supprimer la demande de congé
+    // Supprimer la demande de congés
     await prisma.demandeConge.delete({
-      where: {
-        id: params.id,
-      },
-    })
+      where: { id },
+    });
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: "Demande de congés supprimée avec succès",
+    });
   } catch (error) {
-    console.error("Erreur lors de la suppression de la demande de congé:", error)
-    return NextResponse.json({ error: "Erreur lors de la suppression de la demande de congé" }, { status: 500 })
+    console.error(
+      "Erreur lors de la suppression de la demande de congés:",
+      error
+    );
+    return NextResponse.json(
+      { error: "Impossible de supprimer la demande de congés" },
+      { status: 500 }
+    );
   }
 }

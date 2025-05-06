@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: (role as Role) || "collaborateur",
         nom: `Utilisateur #${userId}`,
         identifiant: `user_${userId}`,
-        collaborateur_id: null,
+        collaborateur_id: userId,
         collaborateurs_geres: [],
       };
       setUser(tokenUser);

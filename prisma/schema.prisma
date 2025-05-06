@@ -251,6 +251,13 @@ model FicheDePoste {
   remuneration      String?
   avantages         String?
   horaires          String?
+  email             String?
+  telephone         String?
+  adresse           String?
+  codePostal        String?     @map("code_postal")
+  ville             String?
+  dateNaissance     DateTime?   @map("date_naissance")
+  numeroSecu        String?     @map("numero_secu")
   lieuTravail       String?     @map("lieu_travail")
   dateCreation      DateTime    @default(now()) @map("date_creation")
   dateModification  DateTime    @default(now()) @map("date_modification")

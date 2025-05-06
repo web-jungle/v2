@@ -59,7 +59,9 @@ export default function SalarieForm({
   const [isLoading, setIsLoading] = useState(false);
   const [collaborateurs, setCollaborateurs] = useState<Collaborateur[]>([]);
   const [formData, setFormData] = useState<
-    Omit<SalarieWithCollaborateur, "id"> & { collaborateurId?: string | null }
+    Omit<SalarieWithCollaborateur, "id"> & {
+      collaborateurId?: string | undefined;
+    }
   >({
     nom: "",
     prenom: "",
@@ -76,7 +78,7 @@ export default function SalarieForm({
     adresse: "",
     codePostal: "",
     ville: "",
-    collaborateurId: null,
+    collaborateurId: undefined,
   });
 
   // Liste des certifications et habilitations possibles
@@ -156,7 +158,7 @@ export default function SalarieForm({
         ville: salarie.ville || "",
         dateNaissance: salarie.dateNaissance,
         numeroSecu: salarie.numeroSecu || "",
-        collaborateurId: salarie.collaborateur?.id || null,
+        collaborateurId: salarie.collaborateur?.id || undefined,
       });
     } else {
       // Réinitialiser le formulaire pour un nouveau salarié
@@ -176,7 +178,7 @@ export default function SalarieForm({
         adresse: "",
         codePostal: "",
         ville: "",
-        collaborateurId: null,
+        collaborateurId: undefined,
       });
     }
   }, [salarie]);
@@ -188,7 +190,7 @@ export default function SalarieForm({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (name: string, value: string | null) => {
+  const handleSelectChange = (name: string, value: string | undefined) => {
     if (name === "collaborateurId") {
       if (value && value !== "aucun") {
         // Rechercher le collaborateur correspondant
@@ -223,7 +225,7 @@ export default function SalarieForm({
         // Réinitialiser juste le champ collaborateurId si "aucun" est sélectionné
         setFormData((prev) => ({
           ...prev,
-          collaborateurId: null,
+          collaborateurId: undefined,
         }));
       }
     } else {
@@ -271,34 +273,102 @@ export default function SalarieForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("=== FORMULAIRE SOUMIS ===");
+    console.log("Données du formulaire:", formData);
     setIsLoading(true);
 
-    // Validation de base
-    if (!formData.nom || !formData.prenom || !formData.poste) {
+    try {
+      // Si le nom est au format "NOM Prénom", séparer en nom et prénom
+      let nomToSave = formData.nom;
+      let prenomToSave = formData.prenom;
+
+      if (formData.nom.includes(" ") && !formData.prenom) {
+        // Format probable: "NOM Prénom" - extraire le prénom
+        const nameParts = formData.nom.split(" ");
+        if (nameParts.length > 1) {
+          prenomToSave = nameParts.pop() || "";
+          nomToSave = nameParts.join(" ");
+          console.log("Séparation automatique nom/prénom:", {
+            nomToSave,
+            prenomToSave,
+          });
+        }
+      }
+
+      // Validation de base après séparation
+      if (!nomToSave || !prenomToSave || !formData.poste) {
+        console.warn("Validation échouée:", {
+          nomToSave,
+          prenomToSave,
+          poste: formData.poste,
+        });
+        toast({
+          title: "Erreur de validation",
+          description:
+            "Veuillez remplir tous les champs obligatoires (nom, prénom, poste).",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Générer un email si vide
+      let email = formData.email;
+      if (!email) {
+        email = `${prenomToSave.toLowerCase()}.${nomToSave.toLowerCase()}@orizon-group.fr`;
+      }
+
+      console.log("Nom à sauvegarder:", nomToSave);
+      console.log("Prénom à sauvegarder:", prenomToSave);
+
+      // Créer le salarié avec association au collaborateur si nécessaire
+      const savedSalarie: SalarieWithCollaborateur = {
+        id: salarie?.id || "temp_" + String(Date.now()),
+        // Ne pas utiliser spread pour éviter de perdre des champs
+        nom: nomToSave,
+        prenom: prenomToSave,
+        email: email,
+        telephone: formData.telephone || "",
+        adresse: formData.adresse || "",
+        codePostal: formData.codePostal || "",
+        ville: formData.ville || "",
+        classification: formData.classification || "Employé",
+        dateEntree: formData.dateEntree || new Date(),
+        typeContrat: formData.typeContrat || "CDI",
+        dureeContrat: formData.dureeContrat || "",
+        certifications: formData.certifications || [],
+        habilitations: formData.habilitations || [],
+        entreprise: formData.entreprise || entreprises[0],
+        poste: formData.poste || "",
+        dateNaissance: formData.dateNaissance,
+        numeroSecu: formData.numeroSecu || "",
+        collaborateur: formData.collaborateurId
+          ? {
+              id: formData.collaborateurId,
+              nom: `${nomToSave} ${prenomToSave}`,
+              couleur: "#3174ad",
+              entreprise: formData.entreprise,
+            }
+          : undefined,
+      };
+
+      console.log("Données finales à sauvegarder:", savedSalarie);
+      console.log("Téléphone:", savedSalarie.telephone);
+
+      // Appel de l'API pour sauvegarder
+      onSave(savedSalarie);
+      console.log("onSave appelé avec succès");
+    } catch (error) {
+      console.error("Erreur lors de la soumission du formulaire:", error);
       toast({
-        title: "Erreur de validation",
-        description: "Veuillez remplir tous les champs obligatoires.",
+        title: "Erreur",
+        description:
+          "Une erreur s'est produite lors de l'enregistrement des données.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    // Générer un email si vide
-    if (!formData.email) {
-      const email = `${formData.prenom.toLowerCase()}.${formData.nom.toLowerCase()}@orizon-group.fr`;
-      setFormData((prev) => ({ ...prev, email }));
-    }
-
-    // Créer le salarié
-    const savedSalarie: SalarieWithCollaborateur = {
-      id: salarie?.id || String(Date.now()),
-      ...formData,
-    };
-
-    // Appel de l'API pour sauvegarder
-    onSave(savedSalarie);
-    setIsLoading(false);
   };
 
   // Afficher un feedback quand un collaborateur est sélectionné
@@ -363,7 +433,7 @@ export default function SalarieForm({
                 onValueChange={(value) =>
                   handleSelectChange(
                     "collaborateurId",
-                    value === "aucun" ? null : value
+                    value === "aucun" ? undefined : value
                   )
                 }
               >

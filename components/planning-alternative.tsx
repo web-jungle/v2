@@ -11,7 +11,8 @@ import type { Collaborateur, Evenement, Role } from "@/lib/types";
 import { entreprises } from "@/lib/types";
 import { format, getDay, parse, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Building, CalendarIcon, Users } from "lucide-react";
+import { Building, CalendarIcon, FileText, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -64,6 +65,7 @@ export default function Planning() {
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { toast } = useToast();
+  const router = useRouter();
 
   // Récupérer les informations d'authentification
   const { user } = useAuth();
@@ -691,6 +693,16 @@ export default function Planning() {
           )}
         </h2>
         <div className="flex flex-wrap gap-2">
+          {userRole === "admin" && (
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => router.push("/admin/recap")}
+            >
+              <FileText className="h-4 w-4" />
+              Récapitulatif administratif
+            </Button>
+          )}
           <ExportPDF
             events={filteredEvents}
             collaborateurs={collaborateurs}

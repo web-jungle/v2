@@ -64,6 +64,12 @@ export interface Evenement {
   adresseComplete?: string | null;
   created_at?: string;
   collaborateur?: Collaborateur;
+  // Interface pour la décomposition des zones
+  decomposedZone?: {
+    zone5: number;
+    zoneAutre: string | null;
+    quantiteZoneAutre: number;
+  };
 }
 
 // Interface pour les résultats de géocodage

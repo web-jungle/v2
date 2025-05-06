@@ -1,40 +1,122 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/components/ui/use-toast"
-import { evenementsInitiaux, collaborateurs, entreprises } from "@/lib/data"
-import RecapTable from "@/components/admin/recap-table"
-import ExportRecapExcel from "@/components/admin/export-recap-excel"
+import ExportRecapExcel from "@/components/admin/export-recap-excel";
+import RecapTable from "@/components/admin/recap-table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/auth-context";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function RecapPage() {
-  const { user, isLoading } = useAuth()
-  const router = useRouter()
-  const { toast } = useToast()
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-  const [selectedEnterprise, setSelectedEnterprise] = useState<string | null>(null)
-  const [selectedCollaborateur, setSelectedCollaborateur] = useState<string | null>(null)
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    new Date().getMonth()
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(
+    new Date().getFullYear()
+  );
+  const [selectedEnterprise, setSelectedEnterprise] = useState<string | null>(
+    null
+  );
+  const [selectedCollaborateur, setSelectedCollaborateur] = useState<
+    string | null
+  >(null);
+
+  // États pour stocker les données de l'API
+  const [collaborateurs, setCollaborateurs] = useState<any[]>([]);
+  const [evenements, setEvenements] = useState<any[]>([]);
+  const [entreprises, setEntreprises] = useState<string[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   // Vérifier si l'utilisateur est admin
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
     if (user && user.role !== "admin") {
-      router.push("/")
+      router.push("/");
       toast({
         title: "Accès refusé",
         description: "Cette page est réservée aux administrateurs.",
         variant: "destructive",
-      })
+      });
     }
-  }, [user, isLoading, router, toast])
+  }, [user, isLoading, router, toast]);
+
+  // Charger les données depuis l'API
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user || user.role !== "admin") return;
+
+      setIsDataLoading(true);
+      try {
+        // Construire l'URL avec les paramètres de filtre
+        const params = new URLSearchParams({
+          month: selectedMonth.toString(),
+          year: selectedYear.toString(),
+        });
+
+        if (selectedEnterprise) {
+          params.append("entreprise", selectedEnterprise);
+        }
+
+        if (selectedCollaborateur) {
+          params.append("collaborateurId", selectedCollaborateur);
+        }
+
+        const response = await fetch(`/api/admin/recap?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error("Erreur lors du chargement des données");
+        }
+
+        const data = await response.json();
+
+        // Mettre à jour les états avec les données
+        setCollaborateurs(data.collaborateurs);
+        setEvenements(data.evenements);
+        setEntreprises(data.entreprises);
+      } catch (error) {
+        console.error("Erreur lors du chargement des données:", error);
+        toast({
+          title: "Erreur",
+          description:
+            "Impossible de charger les données. Veuillez réessayer plus tard.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [
+    user,
+    selectedMonth,
+    selectedYear,
+    selectedEnterprise,
+    selectedCollaborateur,
+    toast,
+  ]);
 
   // Générer les options pour les mois
   const monthOptions = [
@@ -50,34 +132,23 @@ export default function RecapPage() {
     { value: 9, label: "Octobre" },
     { value: 10, label: "Novembre" },
     { value: 11, label: "Décembre" },
-  ]
+  ];
 
   // Générer les options pour les années (année courante et les 2 précédentes)
-  const currentYear = new Date().getFullYear()
+  const currentYear = new Date().getFullYear();
   const yearOptions = [
     { value: currentYear, label: currentYear.toString() },
     { value: currentYear - 1, label: (currentYear - 1).toString() },
     { value: currentYear - 2, label: (currentYear - 2).toString() },
-  ]
+  ];
 
-  // Filtrer les collaborateurs par entreprise
-  const filteredCollaborateurs = useMemo(() => {
-    if (selectedEnterprise) {
-      return collaborateurs.filter((c) => c.entreprise === selectedEnterprise)
-    }
-    return collaborateurs
-  }, [selectedEnterprise])
-
-  // Filtrer les événements par mois et année
-  const filteredEvents = useMemo(() => {
-    return evenementsInitiaux.filter((event) => {
-      const eventDate = new Date(event.start)
-      return eventDate.getMonth() === selectedMonth && eventDate.getFullYear() === selectedYear
-    })
-  }, [selectedMonth, selectedYear])
+  // Filtrer les collaborateurs selon l'entreprise sélectionnée
+  const filteredCollaborateurs = selectedEnterprise
+    ? collaborateurs.filter((c) => c.entreprise === selectedEnterprise)
+    : collaborateurs;
 
   if (isLoading || !user || user.role !== "admin") {
-    return null
+    return null;
   }
 
   return (
@@ -85,7 +156,7 @@ export default function RecapPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Récapitulatif Administratif</h1>
         <ExportRecapExcel
-          events={filteredEvents}
+          events={evenements}
           collaborateurs={filteredCollaborateurs}
           selectedCollaborateur={selectedCollaborateur}
           selectedEnterprise={selectedEnterprise}
@@ -97,7 +168,9 @@ export default function RecapPage() {
       <Card>
         <CardHeader>
           <CardTitle>Filtres</CardTitle>
-          <CardDescription>Sélectionnez les critères pour affiner le récapitulatif</CardDescription>
+          <CardDescription>
+            Sélectionnez les critères pour affiner le récapitulatif
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
@@ -105,14 +178,19 @@ export default function RecapPage() {
               <label className="text-sm font-medium">Mois</label>
               <Select
                 value={selectedMonth.toString()}
-                onValueChange={(value) => setSelectedMonth(Number.parseInt(value))}
+                onValueChange={(value) =>
+                  setSelectedMonth(Number.parseInt(value))
+                }
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Sélectionner un mois" />
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions.map((month) => (
-                    <SelectItem key={month.value} value={month.value.toString()}>
+                    <SelectItem
+                      key={month.value}
+                      value={month.value.toString()}
+                    >
                       {month.label}
                     </SelectItem>
                   ))}
@@ -124,7 +202,9 @@ export default function RecapPage() {
               <label className="text-sm font-medium">Année</label>
               <Select
                 value={selectedYear.toString()}
-                onValueChange={(value) => setSelectedYear(Number.parseInt(value))}
+                onValueChange={(value) =>
+                  setSelectedYear(Number.parseInt(value))
+                }
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Sélectionner une année" />
@@ -144,8 +224,8 @@ export default function RecapPage() {
               <Select
                 value={selectedEnterprise || "all"}
                 onValueChange={(value) => {
-                  setSelectedEnterprise(value === "all" ? null : value)
-                  setSelectedCollaborateur(null) // Réinitialiser le collaborateur sélectionné
+                  setSelectedEnterprise(value === "all" ? null : value);
+                  setSelectedCollaborateur(null); // Réinitialiser le collaborateur sélectionné
                 }}
               >
                 <SelectTrigger className="w-[180px]">
@@ -154,7 +234,10 @@ export default function RecapPage() {
                 <SelectContent>
                   <SelectItem value="all">Toutes les entreprises</SelectItem>
                   {entreprises.map((entreprise) => (
-                    <SelectItem key={entreprise} value={entreprise}>
+                    <SelectItem
+                      key={entreprise}
+                      value={entreprise || `entreprise-${Date.now()}`}
+                    >
                       {entreprise}
                     </SelectItem>
                   ))}
@@ -166,7 +249,9 @@ export default function RecapPage() {
               <label className="text-sm font-medium">Collaborateur</label>
               <Select
                 value={selectedCollaborateur || "all"}
-                onValueChange={(value) => setSelectedCollaborateur(value === "all" ? null : value)}
+                onValueChange={(value) =>
+                  setSelectedCollaborateur(value === "all" ? null : value)
+                }
               >
                 <SelectTrigger className="w-[220px]">
                   <SelectValue placeholder="Tous les collaborateurs" />
@@ -174,7 +259,10 @@ export default function RecapPage() {
                 <SelectContent>
                   <SelectItem value="all">Tous les collaborateurs</SelectItem>
                   {filteredCollaborateurs.map((collaborateur) => (
-                    <SelectItem key={collaborateur.id} value={collaborateur.id}>
+                    <SelectItem
+                      key={collaborateur.id}
+                      value={collaborateur.id || `collab-${Date.now()}`}
+                    >
                       {collaborateur.nom}
                     </SelectItem>
                   ))}
@@ -185,13 +273,22 @@ export default function RecapPage() {
         </CardContent>
       </Card>
 
-      <RecapTable
-        events={filteredEvents}
-        collaborateurs={filteredCollaborateurs}
-        selectedCollaborateur={selectedCollaborateur}
-        month={selectedMonth}
-        year={selectedYear}
-      />
+      {isDataLoading ? (
+        <div className="flex justify-center items-center p-10">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">
+            Chargement des données...
+          </span>
+        </div>
+      ) : (
+        <RecapTable
+          events={evenements}
+          collaborateurs={filteredCollaborateurs}
+          selectedCollaborateur={selectedCollaborateur}
+          month={selectedMonth}
+          year={selectedYear}
+        />
+      )}
     </div>
-  )
+  );
 }
