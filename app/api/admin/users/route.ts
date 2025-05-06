@@ -1,41 +1,47 @@
-import { PrismaClient } from "@prisma/client"
-import { NextResponse } from "next/server"
-
-export const runtime = 'nodejs';
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
 // GET all users
 export async function GET() {
   try {
     const users = await prisma.utilisateur.findMany({
       orderBy: {
-        nom: 'asc', // Ou un autre champ de tri si vous préférez
+        nom: "asc", // Ou un autre champ de tri si vous préférez
       },
-    })
-    return NextResponse.json(users, { status: 200 })
+    });
+    return NextResponse.json(users, { status: 200 });
   } catch (error: any) {
-    console.error("Erreur lors de la récupération des utilisateurs:", error)
+    console.error("Erreur lors de la récupération des utilisateurs:", error);
     return NextResponse.json(
       {
         message: "Erreur lors de la récupération des utilisateurs",
         error: error.message,
       },
       { status: 500 }
-    )
+    );
   } finally {
-    await prisma.$disconnect()
+    await prisma.$disconnect();
   }
 }
 
 // POST new user
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { identifiant, nom, role, collaborateur_id, collaborateurs_geres, mot_de_passe } = body
+    const body = await request.json();
+    const {
+      identifiant,
+      nom,
+      role,
+      collaborateur_id,
+      collaborateurs_geres,
+      mot_de_passe,
+    } = body;
 
     if (!identifiant || !mot_de_passe || !nom || !role) {
-      return NextResponse.json({ message: "Champs manquants" }, { status: 400 })
+      return NextResponse.json(
+        { message: "Champs manquants" },
+        { status: 400 }
+      );
     }
 
     // Idéalement, hashez le mot de passe ici avant la création
@@ -50,24 +56,26 @@ export async function POST(request: Request) {
         collaborateursGeres: collaborateurs_geres || [],
         motDePasse: mot_de_passe, // Correction ici
       },
-    })
+    });
 
-    return NextResponse.json(newUser, { status: 201 })
-
+    return NextResponse.json(newUser, { status: 201 });
   } catch (error: any) {
-    console.error("Erreur lors de la création de l\'utilisateur:", error)
+    console.error("Erreur lors de la création de l'utilisateur:", error);
     // Gérer les erreurs spécifiques (ex: identifiant déjà existant)
-    if (error.code === 'P2002' && error.meta?.target?.includes('identifiant')) {
-      return NextResponse.json({ message: "Cet identifiant est déjà utilisé" }, { status: 409 })
+    if (error.code === "P2002" && error.meta?.target?.includes("identifiant")) {
+      return NextResponse.json(
+        { message: "Cet identifiant est déjà utilisé" },
+        { status: 409 }
+      );
     }
     return NextResponse.json(
       {
-        message: "Erreur lors de la création de l\'utilisateur",
+        message: "Erreur lors de la création de l'utilisateur",
         error: error.message,
       },
       { status: 500 }
-    )
+    );
   } finally {
-    await prisma.$disconnect()
+    await prisma.$disconnect();
   }
-} 
+}

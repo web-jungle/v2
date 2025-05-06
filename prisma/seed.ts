@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+
 import {
   demandesCongesInitiales,
   notificationsInitiales,
@@ -14,8 +15,6 @@ import { vehiculesInitiaux } from "../lib/logistique-data";
 import { stockItemsInitiaux } from "../lib/logistique-stock-data";
 import { contratsInitiaux } from "../lib/maintenance-data";
 import { salariesInitiaux } from "../lib/rh-data";
-
-const prisma = new PrismaClient();
 
 async function main() {
   try {

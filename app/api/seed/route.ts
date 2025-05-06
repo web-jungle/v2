@@ -3,8 +3,6 @@ import {
   notificationsInitiales,
 } from "@/lib/conges-data";
 import { contactsInitiaux } from "@/lib/crm-data";
-
-export const runtime = 'nodejs';
 import {
   collaborateurs,
   evenementsInitiaux,
@@ -13,11 +11,9 @@ import {
 import { vehiculesInitiaux } from "@/lib/logistique-data";
 import { stockItemsInitiaux } from "@/lib/logistique-stock-data";
 import { contratsInitiaux } from "@/lib/maintenance-data";
+import { prisma } from "@/lib/prisma";
 import { salariesInitiaux } from "@/lib/rh-data";
-import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
-
-const prisma = new PrismaClient();
 
 export async function GET() {
   try {
