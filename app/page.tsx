@@ -1,7 +1,5 @@
 "use client";
 
-export const runtime = "nodejs";
-
 export default function HomePage() {
   // Page de chargement pendant la vérification de l'authentification
   return (
