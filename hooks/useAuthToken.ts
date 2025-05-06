@@ -171,7 +171,14 @@ export function useAuthToken() {
       collaborateursGeres: [],
       isLoading: false,
     });
+
+    // Redirection vers la page de login puis rechargement de la page
     router.push("/login");
+
+    // Utiliser un timeout pour laisser le temps à la redirection de commencer
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   // Récupérer le token

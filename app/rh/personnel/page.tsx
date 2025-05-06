@@ -92,17 +92,6 @@ export default function PersonnelPage() {
   };
 
   // Vérifier si l'utilisateur est admin ou manager
-  useEffect(() => {
-    if (user && user.role !== "admin" && user.role !== "manager") {
-      router.push("/");
-      toast({
-        title: "Accès limité",
-        description:
-          "La gestion RH est réservée aux administrateurs et managers.",
-        variant: "destructive",
-      });
-    }
-  }, [user, router, toast]);
 
   // Charger les salariés depuis l'API
   useEffect(() => {

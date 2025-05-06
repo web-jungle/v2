@@ -44,7 +44,12 @@ export default function LoginPage() {
       const success = await login(identifiant, motDePasse);
 
       if (success) {
-        router.push("/home");
+        // Au lieu de simplement rediriger vers la page d'accueil,
+        // on enregistre la destination dans la session et on recharge la page
+        sessionStorage.setItem("redirect_after_login", "/home");
+
+        // Forcer un rechargement complet pour garantir un état propre
+        window.location.href = "/home";
       } else {
         setError("Identifiant ou mot de passe incorrect");
       }

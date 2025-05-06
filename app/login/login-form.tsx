@@ -1,51 +1,53 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function LoginForm() {
-  const [identifiant, setIdentifiant] = useState("")
-  const [motDePasse, setMotDePasse] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
-  const router = useRouter()
-  const { toast } = useToast()
+  const [identifiant, setIdentifiant] = useState("");
+  const [motDePasse, setMotDePasse] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      const success = await login(identifiant, motDePasse)
+      const success = await login(identifiant, motDePasse);
 
       if (success) {
-        router.push("/home")
+        sessionStorage.setItem("redirect_after_login", "/home");
+        window.location.href = "/home";
       } else {
         toast({
           title: "Erreur d'authentification",
           description: "Identifiant ou mot de passe incorrect.",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error)
+      console.error("Erreur lors de la connexion:", error);
       toast({
         title: "Erreur de connexion",
-        description: "Une erreur est survenue lors de la tentative de connexion.",
+        description:
+          "Une erreur est survenue lors de la tentative de connexion.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
@@ -71,7 +73,9 @@ export function LoginForm() {
           disabled={isLoading}
         />
       </div>
-      <Button disabled={isLoading}>{isLoading ? "Connexion..." : "Se connecter"}</Button>
+      <Button disabled={isLoading}>
+        {isLoading ? "Connexion..." : "Se connecter"}
+      </Button>
     </form>
-  )
+  );
 }

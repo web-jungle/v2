@@ -34,7 +34,6 @@ export default function RootLayout({
           <AuthProvider>
             <div className="flex min-h-screen bg-muted/10">
               <Navigation />
-              <Navigation />
               <main className="flex-1 lg:ml-64 transition-all duration-300">
                 <div className="w-full py-8 px-4 sm:px-6 lg:px-8">
                   <div className="flex justify-between items-center mb-4">

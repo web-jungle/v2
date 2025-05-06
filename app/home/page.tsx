@@ -16,19 +16,11 @@ import { CalendarRange, Moon, Sun, Truck, UserCog, Users } from "lucide-react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 export default function HomePage() {
   const { isAuthenticated, userId, isLoading } = useAuthToken();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-
-  // Rediriger si non authentifié
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, isLoading, router]);
 
   // État de chargement
   if (isLoading || !isAuthenticated) {

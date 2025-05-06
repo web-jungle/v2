@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import {
   CalendarIcon,
@@ -18,23 +19,47 @@ import {
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "./loading-spinner";
 import Notifications from "./notifications";
 
 export default function Navigation() {
+  // Utiliser à la fois useAuthToken et useAuth pour assurer la synchronisation
   const { isAuthenticated, userId, role, logout } = useAuthToken();
+  const { user } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showNavigation, setShowNavigation] = useState(false);
   const { theme } = useTheme();
 
-  // Ne pas afficher la navigation si l'utilisateur n'est pas connecté
-  if (!isAuthenticated) return null;
+  // Effet pour gérer l'affichage de la navigation en fonction de l'authentification
+  // Surveiller à la fois isAuthenticated et user pour une meilleure synchronisation
+  useEffect(() => {
+    // Utiliser soit isAuthenticated soit la présence de user pour déterminer si l'utilisateur est connecté
+    const isUserLoggedIn = isAuthenticated || user !== null;
 
-  // Ne pas afficher la navigation sur la page de connexion
+    // Vérifier que nous ne sommes pas sur la page de login et que l'utilisateur est connecté
+    if (isUserLoggedIn && pathname !== "/login") {
+      setShowNavigation(true);
+    } else {
+      setShowNavigation(false);
+    }
+
+    console.log("Navigation state updated:", {
+      isAuthenticated,
+      user,
+      pathname,
+      showNavigation: isUserLoggedIn && pathname !== "/login",
+    });
+  }, [isAuthenticated, user, pathname]);
+
+  // Si la navigation ne doit pas être affichée, retourner null immédiatement
+  if (!showNavigation) return null;
+
+  // Si nous sommes sur la page de login, ne pas afficher la navigation
   if (pathname === "/login") return null;
 
   const isCRM = pathname.startsWith("/crm");
@@ -55,6 +80,13 @@ export default function Navigation() {
         setNavigatingTo(null);
       }, 1000);
     }
+  };
+
+  // Gérer la déconnexion
+  const handleLogout = () => {
+    // Masquer la navigation immédiatement avant de déclencher la déconnexion
+    setShowNavigation(false);
+    logout();
   };
 
   const navItems = [
@@ -215,7 +247,7 @@ export default function Navigation() {
             <Button
               variant="outline"
               size="sm"
-              onClick={logout}
+              onClick={handleLogout}
               className="w-full"
             >
               <LogOut className="h-4 w-4 mr-2" />

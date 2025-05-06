@@ -60,17 +60,6 @@ export default function AdminPage() {
     collaborateursGeres: [],
   });
 
-  useEffect(() => {
-    if (user && user.role !== "admin") {
-      router.push("/");
-      toast({
-        title: "Accès refusé",
-        description: "Vous n'avez pas les droits pour accéder à cette page.",
-        variant: "destructive",
-      });
-    }
-  }, [user, router, toast]);
-
   const fetchCollaborateurs = async () => {
     try {
       setIsLoading(true);
