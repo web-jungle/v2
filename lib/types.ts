@@ -6,7 +6,7 @@ export type Role = "admin" | "manager" | "collaborateur";
 export interface Collaborateur {
   id: string;
   nom: string;
-  couleur: string;
+  couleur?: string;
   entreprise: string;
   created_at?: string;
 }

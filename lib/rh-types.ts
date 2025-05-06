@@ -17,6 +17,13 @@ export interface Salarie {
   ville?: string;
   dateNaissance?: Date;
   numeroSecu?: string;
+  collaborateurId?: string; // ID du collaborateur associé
+  collaborateur?: {
+    id: string;
+    nom: string;
+    entreprise: string;
+    couleur?: string;
+  };
 }
 
 export const typeContrats = [

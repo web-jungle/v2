@@ -1,28 +1,61 @@
-"use client"
+"use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
-import { Pencil, Mail, Phone, MapPin, Calendar, FileText, Briefcase, Building } from "lucide-react"
-import type { Salarie } from "@/lib/rh-types"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Salarie } from "@/lib/rh-types";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import {
+  Briefcase,
+  Building,
+  Calendar,
+  FileText,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+} from "lucide-react";
 
 interface SalarieDetailsProps {
-  isOpen: boolean
-  onClose: () => void
-  salarie: Salarie | null
-  onEdit: (salarie: Salarie) => void
+  isOpen: boolean;
+  onClose: () => void;
+  salarie: Salarie | null;
+  onEdit: (salarie: Salarie) => void;
 }
 
-export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: SalarieDetailsProps) {
-  if (!salarie) return null
+export default function SalarieDetails({
+  isOpen,
+  onClose,
+  salarie,
+  onEdit,
+}: SalarieDetailsProps) {
+  if (!salarie) return null;
 
-  const formatDate = (date: Date) => {
-    return format(new Date(date), "PPP", { locale: fr })
-  }
+  const formatDate = (date: any) => {
+    if (!date) return "Non définie";
+
+    try {
+      // Vérifier si la date est une chaîne ou un objet Date
+      const dateObj = typeof date === "string" ? new Date(date) : date;
+
+      // Vérifier si la date est valide
+      if (isNaN(dateObj.getTime())) return "Date invalide";
+
+      return format(dateObj, "PPP", { locale: fr });
+    } catch (error) {
+      console.error("Erreur lors du formatage de la date:", error);
+      return "Date invalide";
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -50,7 +83,9 @@ export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: Sal
             <div className="grid grid-cols-2 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Informations personnelles</CardTitle>
+                  <CardTitle className="text-base">
+                    Informations personnelles
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center">
@@ -92,7 +127,9 @@ export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: Sal
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Informations professionnelles</CardTitle>
+                  <CardTitle className="text-base">
+                    Informations professionnelles
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center">
@@ -120,14 +157,21 @@ export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: Sal
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium">Type de contrat</p>
-                    <Badge className="mt-1" variant={salarie.typeContrat === "CDI" ? "default" : "outline"}>
+                    <Badge
+                      className="mt-1"
+                      variant={
+                        salarie.typeContrat === "CDI" ? "default" : "outline"
+                      }
+                    >
                       {salarie.typeContrat}
                       {salarie.dureeContrat ? ` (${salarie.dureeContrat})` : ""}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Date d'entrée</p>
-                    <p className="text-sm mt-1">{formatDate(salarie.dateEntree)}</p>
+                    <p className="text-sm mt-1">
+                      {formatDate(salarie.dateEntree)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -149,7 +193,9 @@ export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: Sal
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Aucune certification enregistrée</p>
+                  <p className="text-sm text-muted-foreground">
+                    Aucune certification enregistrée
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -168,7 +214,9 @@ export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: Sal
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Aucune habilitation enregistrée</p>
+                  <p className="text-sm text-muted-foreground">
+                    Aucune habilitation enregistrée
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -182,5 +230,5 @@ export default function SalarieDetails({ isOpen, onClose, salarie, onEdit }: Sal
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

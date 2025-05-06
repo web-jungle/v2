@@ -1,44 +1,93 @@
-import { prisma } from "@/lib/prisma"
-import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
-// GET /api/salaries/[id] - Récupérer un salarié spécifique
-export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+// GET /api/salaries/[id] - Récupérer une fiche de poste spécifique
+export async function GET(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
-    const id = params.id
-    
-    const salarie = await prisma.salarie.findUnique({
-      where: { id },
+    const ficheId = params.id;
+    console.log("GET /api/salaries/[id] - Récupération de la fiche:", ficheId);
+
+    // Chercher la fiche de poste par son ID
+    const ficheDePoste = await prisma.ficheDePoste.findUnique({
+      where: { id: ficheId },
       include: {
         collaborateur: true,
       },
-    })
-    
-    if (!salarie) {
+    });
+
+    if (!ficheDePoste) {
       return NextResponse.json(
-        { error: "Salarié non trouvé" },
+        { error: "Fiche de poste non trouvée" },
         { status: 404 }
-      )
+      );
     }
-    
-    return NextResponse.json(salarie)
+
+    // Extraire le nom et prénom à partir du nom du collaborateur si disponible
+    let nom = "";
+    let prenom = "";
+
+    if (ficheDePoste.collaborateur?.nom) {
+      const nameParts = ficheDePoste.collaborateur.nom.split(" ");
+      if (nameParts.length > 1) {
+        prenom = nameParts.pop() || "";
+        nom = nameParts.join(" ");
+      } else {
+        nom = ficheDePoste.collaborateur.nom;
+      }
+    }
+
+    // Formater la réponse pour correspondre à l'interface attendue par le frontend
+    const formattedResponse = {
+      ...ficheDePoste,
+      nom: nom,
+      prenom: prenom,
+      dateEntree: ficheDePoste.dateCreation,
+      email: "",
+      telephone: "",
+      adresse: "",
+      codePostal: "",
+      ville: "",
+      dateNaissance: null,
+      numeroSecu: "",
+    };
+
+    return NextResponse.json(formattedResponse);
   } catch (error) {
-    console.error("Erreur lors de la récupération du salarié:", error)
+    console.error(
+      "Erreur lors de la récupération de la fiche de poste:",
+      error
+    );
     return NextResponse.json(
-      { error: "Impossible de récupérer le salarié" },
+      { error: "Impossible de récupérer la fiche de poste" },
       { status: 500 }
-    )
+    );
   }
 }
 
-// PATCH /api/salaries/[id] - Mettre à jour un salarié
-export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+// PATCH /api/salaries/[id] - Mettre à jour un salarié existant
+export async function PATCH(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
-    const id = params.id
-    const requestData = await req.json()
-    
-    // Extraire uniquement les champs qui existent dans le modèle Salarie
+    const ficheId = params.id;
+    const requestData = await req.json();
+    console.log("PATCH /api/salaries/[id] - Données reçues:", requestData);
+
+    // Vérifier si la fiche de poste existe
+    const existingFiche = await prisma.ficheDePoste.findUnique({
+      where: { id: ficheId },
+      include: {
+        collaborateur: true,
+      },
+    });
+
+    // Extraire les données de la requête
     const {
       nom,
       prenom,
@@ -58,151 +107,222 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       dateNaissance,
       numeroSecu,
       collaborateurId,
-    } = requestData
-    
-    // Récupérer le salarié existant
-    const existingSalarie = await prisma.salarie.findUnique({
-      where: { id },
-      include: { collaborateur: true },
-    })
-    
-    if (!existingSalarie) {
-      return NextResponse.json(
-        { error: "Salarié non trouvé" },
-        { status: 404 }
-      )
-    }
-    
-    // Données de base pour la mise à jour du salarié
-    const salarieUpdateData = {
-      nom,
-      prenom,
-      classification,
-      dateEntree: new Date(dateEntree),
-      typeContrat,
+      competencesRequises = [],
+      description = `Fiche de poste pour ${nom} ${prenom}`,
+      missions = [],
+      experience,
+      formation,
+      remuneration,
+      avantages,
+      horaires,
+      lieuTravail,
+    } = requestData;
+
+    // Préparer les données pour la fiche de poste
+    const ficheDePosteData = {
+      classification: classification || "Non spécifiée",
+      poste: poste || "Non spécifié",
+      entreprise: entreprise || "Non spécifiée",
+      typeContrat: typeContrat || "CDI",
       dureeContrat,
       certifications: certifications || [],
       habilitations: habilitations || [],
-      entreprise,
-      poste,
-      email,
-      telephone,
-      adresse,
-      codePostal,
-      ville,
-      dateNaissance: dateNaissance ? new Date(dateNaissance) : undefined,
-      numeroSecu,
-    }
-    
-    // Gérer le collaborateur
-    let finalCollaborateurId = existingSalarie.collaborateurId
-    
-    // Si un collaborateurId est spécifiquement fourni
-    if (collaborateurId !== undefined) {
-      // Si on veut supprimer l'association
-      if (collaborateurId === "aucun" || collaborateurId === null) {
-        finalCollaborateurId = null
-      } 
-      // Si on veut changer l'association pour un nouveau collaborateur
-      else if (collaborateurId !== existingSalarie.collaborateurId) {
-        // Vérifier si ce collaborateur est déjà associé à un autre salarié
-        const otherSalarie = await prisma.salarie.findUnique({
-          where: { 
-            collaborateurId: collaborateurId,
-          },
-        })
-        
-        if (otherSalarie && otherSalarie.id !== id) {
-          return NextResponse.json(
-            { error: "Ce collaborateur est déjà associé à un autre salarié" },
-            { status: 400 }
-          )
-        }
-        
-        finalCollaborateurId = collaborateurId
-      }
-      // Sinon on garde l'association existante
-    }
-    
-    // Si le salarié a un collaborateur associé et que ce collaborateur doit être mis à jour
-    if (existingSalarie.collaborateur && finalCollaborateurId === existingSalarie.collaborateurId) {
-      // Mettre à jour le collaborateur si le nom ou l'entreprise ont changé
+      competencesRequises: competencesRequises || [],
+      description,
+      missions: missions || [],
+      experience,
+      formation,
+      remuneration,
+      avantages,
+      horaires,
+      lieuTravail,
+      dateModification: new Date(),
+    };
+
+    let updatedFiche;
+    let finalCollaborateurId = collaborateurId;
+
+    if (existingFiche) {
+      // Mettre à jour la fiche existante
+      console.log("Mise à jour d'une fiche existante:", ficheId);
+
+      // Si on change de collaborateur
       if (
-        `${nom} ${prenom}` !== existingSalarie.collaborateur.nom ||
-        entreprise !== existingSalarie.collaborateur.entreprise
+        collaborateurId &&
+        collaborateurId !== existingFiche.collaborateurId
       ) {
-        // On vérifie que collaborateurId n'est pas null avant de l'utiliser
-        if (existingSalarie.collaborateurId) {
-          await prisma.collaborateur.update({
-            where: { id: existingSalarie.collaborateurId },
-            data: {
-              nom: `${nom} ${prenom}`,
-              entreprise,
+        // Vérifier si le nouveau collaborateur existe
+        const newCollaborateur = await prisma.collaborateur.findUnique({
+          where: { id: collaborateurId },
+        });
+
+        if (!newCollaborateur) {
+          return NextResponse.json(
+            { error: "Collaborateur non trouvé" },
+            { status: 404 }
+          );
+        }
+
+        // Vérifier si le nouveau collaborateur a déjà une fiche
+        const existingFicheForNewCollab = await prisma.ficheDePoste.findUnique({
+          where: { collaborateurId },
+        });
+
+        if (
+          existingFicheForNewCollab &&
+          existingFicheForNewCollab.id !== ficheId
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Ce collaborateur est déjà associé à une autre fiche de poste",
             },
-          })
+            { status: 400 }
+          );
         }
       }
+
+      // Mettre à jour la fiche
+      updatedFiche = await prisma.ficheDePoste.update({
+        where: { id: ficheId },
+        data: {
+          ...ficheDePosteData,
+          collaborateurId: collaborateurId === "aucun" ? null : collaborateurId,
+        },
+        include: {
+          collaborateur: true,
+        },
+      });
+    } else {
+      // Créer une nouvelle fiche
+      console.log("Création d'une nouvelle fiche pour collaborateur");
+
+      if (collaborateurId && collaborateurId !== "aucun") {
+        // Vérifier si le collaborateur existe
+        const collaborateur = await prisma.collaborateur.findUnique({
+          where: { id: collaborateurId },
+        });
+
+        if (!collaborateur) {
+          return NextResponse.json(
+            { error: "Collaborateur non trouvé" },
+            { status: 404 }
+          );
+        }
+
+        // Vérifier s'il a déjà une fiche
+        const existingFicheForCollab = await prisma.ficheDePoste.findUnique({
+          where: { collaborateurId },
+        });
+
+        if (existingFicheForCollab) {
+          return NextResponse.json(
+            { error: "Ce collaborateur est déjà associé à une fiche de poste" },
+            { status: 400 }
+          );
+        }
+
+        finalCollaborateurId = collaborateurId;
+      } else if (nom && prenom) {
+        // Créer un nouveau collaborateur si nom et prénom fournis mais pas d'ID
+        const fullName = `${nom} ${prenom}`;
+        const newCollaborateur = await prisma.collaborateur.create({
+          data: {
+            nom: fullName,
+            couleur: "#3174ad", // Couleur par défaut
+            entreprise,
+          },
+        });
+
+        finalCollaborateurId = newCollaborateur.id;
+      }
+
+      // Créer la fiche de poste
+      updatedFiche = await prisma.ficheDePoste.create({
+        data: {
+          ...ficheDePosteData,
+          collaborateurId:
+            finalCollaborateurId === "aucun" ? null : finalCollaborateurId,
+          dateCreation: new Date(),
+        },
+        include: {
+          collaborateur: true,
+        },
+      });
     }
-    
-    // Mettre à jour le salarié
-    const salarie = await prisma.salarie.update({
-      where: { id },
-      data: {
-        ...salarieUpdateData,
-        collaborateurId: finalCollaborateurId,
-      },
-      include: {
-        collaborateur: true,
-      },
-    })
-    
-    return NextResponse.json(salarie)
+
+    // Formater la réponse
+    const formattedResponse = {
+      ...updatedFiche,
+      nom:
+        nom ||
+        updatedFiche.collaborateur?.nom?.split(" ").slice(0, -1).join(" ") ||
+        "",
+      prenom: prenom || updatedFiche.collaborateur?.nom?.split(" ").pop() || "",
+      dateEntree: dateEntree || updatedFiche.dateCreation,
+      email: email || "",
+      telephone: telephone || "",
+      adresse: adresse || "",
+      codePostal: codePostal || "",
+      ville: ville || "",
+      dateNaissance: dateNaissance,
+      numeroSecu: numeroSecu || "",
+    };
+
+    console.log("Fiche de poste mise à jour/créée avec succès");
+    return NextResponse.json(formattedResponse);
   } catch (error) {
-    console.error("Erreur lors de la mise à jour du salarié:", error)
+    console.error("Erreur lors de la mise à jour de la fiche de poste:", error);
     return NextResponse.json(
-      { error: "Impossible de mettre à jour le salarié: " + (error instanceof Error ? error.message : String(error)) },
+      {
+        error:
+          "Impossible de mettre à jour la fiche de poste: " +
+          (error instanceof Error ? error.message : String(error)),
+      },
       { status: 500 }
-    )
+    );
   }
 }
 
-// DELETE /api/salaries/[id] - Supprimer un salarié
-export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
+// DELETE /api/salaries/[id] - Supprimer une fiche de poste
+export async function DELETE(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
-    const id = params.id
-    
-    // Récupérer le salarié pour obtenir son collaborateurId
-    const salarie = await prisma.salarie.findUnique({
-      where: { id },
-    })
-    
-    if (!salarie) {
+    const ficheId = params.id;
+    console.log(
+      "DELETE /api/salaries/[id] - Suppression de la fiche:",
+      ficheId
+    );
+
+    // Vérifier si la fiche existe
+    const ficheDePoste = await prisma.ficheDePoste.findUnique({
+      where: { id: ficheId },
+    });
+
+    if (!ficheDePoste) {
       return NextResponse.json(
-        { error: "Salarié non trouvé" },
+        { error: "Fiche de poste non trouvée" },
         { status: 404 }
-      )
+      );
     }
-    
-    // Supprimer le salarié
-    await prisma.salarie.delete({
-      where: { id },
-    })
-    
-    // Note: Le collaborateur reste dans la base de données
-    // Si vous souhaitez également le supprimer, décommentez le code ci-dessous
-    /*
-    await prisma.collaborateur.delete({
-      where: { id: salarie.collaborateurId },
-    })
-    */
-    
-    return NextResponse.json({ success: true, message: "Salarié supprimé avec succès" })
+
+    // Supprimer la fiche de poste
+    await prisma.ficheDePoste.delete({
+      where: { id: ficheId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Fiche de poste supprimée avec succès",
+    });
   } catch (error) {
-    console.error("Erreur lors de la suppression du salarié:", error)
+    console.error("Erreur lors de la suppression de la fiche de poste:", error);
     return NextResponse.json(
-      { error: "Impossible de supprimer le salarié" },
+      { error: "Impossible de supprimer la fiche de poste" },
       { status: 500 }
-    )
+    );
   }
 }
