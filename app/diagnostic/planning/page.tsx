@@ -1,69 +1,81 @@
-"use client"
+"use client";
 
-import { PlanningSyncDiagnostic } from "@/components/planning-sync-diagnostic"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { useEffect, useState } from "react"
-import { LoadingSpinner } from "@/components/loading-spinner"
+import LoadingSpinner from "@/components/loading-spinner";
+import { PlanningSyncDiagnostic } from "@/components/planning-sync-diagnostic";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useEffect, useState } from "react";
 
 export default function PlanningDiagnosticPage() {
-  const [isCreatingTables, setIsCreatingTables] = useState(false)
+  const [isCreatingTables, setIsCreatingTables] = useState(false);
   const [tableStatus, setTableStatus] = useState<{
-    collaborateurs: boolean
-    planning_events: boolean
+    collaborateurs: boolean;
+    planning_events: boolean;
   }>({
     collaborateurs: false,
     planning_events: false,
-  })
+  });
 
-  const supabase = createClientComponentClient()
+  const supabase = createClientComponentClient();
 
   // Vérifier si les tables existent
   const checkTables = async () => {
     try {
       // Vérifier la table collaborateurs
-      const { error: errorCollaborateurs } = await supabase.from("collaborateurs").select("id").limit(1)
+      const { error: errorCollaborateurs } = await supabase
+        .from("collaborateurs")
+        .select("id")
+        .limit(1);
 
       // Vérifier la table planning_events
-      const { error: errorPlanningEvents } = await supabase.from("planning_events").select("id").limit(1)
+      const { error: errorPlanningEvents } = await supabase
+        .from("planning_events")
+        .select("id")
+        .limit(1);
 
       setTableStatus({
         collaborateurs: !errorCollaborateurs,
         planning_events: !errorPlanningEvents,
-      })
+      });
     } catch (error) {
-      console.error("Erreur lors de la vérification des tables:", error)
+      console.error("Erreur lors de la vérification des tables:", error);
     }
-  }
+  };
 
   // Créer les tables nécessaires
   const createTables = async () => {
-    setIsCreatingTables(true)
+    setIsCreatingTables(true);
     try {
       // Créer la table collaborateurs si elle n'existe pas
       if (!tableStatus.collaborateurs) {
-        await supabase.rpc("create_collaborateurs_table")
+        await supabase.rpc("create_collaborateurs_table");
       }
 
       // Créer la table planning_events si elle n'existe pas
       if (!tableStatus.planning_events) {
-        await supabase.rpc("create_planning_events_table")
+        await supabase.rpc("create_planning_events_table");
       }
 
       // Vérifier à nouveau les tables
-      await checkTables()
+      await checkTables();
     } catch (error) {
-      console.error("Erreur lors de la création des tables:", error)
+      console.error("Erreur lors de la création des tables:", error);
     } finally {
-      setIsCreatingTables(false)
+      setIsCreatingTables(false);
     }
-  }
+  };
 
   useEffect(() => {
-    checkTables()
-  }, [])
+    checkTables();
+  }, []);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -72,21 +84,37 @@ export default function PlanningDiagnosticPage() {
       <Card>
         <CardHeader>
           <CardTitle>État des tables</CardTitle>
-          <CardDescription>Vérification des tables nécessaires pour le planning</CardDescription>
+          <CardDescription>
+            Vérification des tables nécessaires pour le planning
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-100 p-4 rounded-md">
                 <h3 className="font-medium">Table Collaborateurs</h3>
-                <div className={`text-lg font-bold ${tableStatus.collaborateurs ? "text-green-600" : "text-red-600"}`}>
+                <div
+                  className={`text-lg font-bold ${
+                    tableStatus.collaborateurs
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
                   {tableStatus.collaborateurs ? "Disponible" : "Non disponible"}
                 </div>
               </div>
               <div className="bg-gray-100 p-4 rounded-md">
                 <h3 className="font-medium">Table Planning Events</h3>
-                <div className={`text-lg font-bold ${tableStatus.planning_events ? "text-green-600" : "text-red-600"}`}>
-                  {tableStatus.planning_events ? "Disponible" : "Non disponible"}
+                <div
+                  className={`text-lg font-bold ${
+                    tableStatus.planning_events
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {tableStatus.planning_events
+                    ? "Disponible"
+                    : "Non disponible"}
                 </div>
               </div>
             </div>
@@ -95,7 +123,7 @@ export default function PlanningDiagnosticPage() {
               <Button onClick={createTables} disabled={isCreatingTables}>
                 {isCreatingTables ? (
                   <>
-                    <LoadingSpinner className="h-4 w-4 mr-2" />
+                    <LoadingSpinner size="sm" />
                     Création des tables...
                   </>
                 ) : (
@@ -119,12 +147,16 @@ export default function PlanningDiagnosticPage() {
           <Card>
             <CardHeader>
               <CardTitle>Scripts SQL</CardTitle>
-              <CardDescription>Scripts SQL pour créer et maintenir les tables du planning</CardDescription>
+              <CardDescription>
+                Scripts SQL pour créer et maintenir les tables du planning
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-medium mb-2">Création de la table collaborateurs</h3>
+                  <h3 className="font-medium mb-2">
+                    Création de la table collaborateurs
+                  </h3>
                   <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto text-sm">
                     {`CREATE TABLE IF NOT EXISTS collaborateurs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -143,7 +175,9 @@ export default function PlanningDiagnosticPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-2">Création de la table planning_events</h3>
+                  <h3 className="font-medium mb-2">
+                    Création de la table planning_events
+                  </h3>
                   <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto text-sm">
                     {`CREATE TABLE IF NOT EXISTS planning_events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -166,7 +200,9 @@ export default function PlanningDiagnosticPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-2">Fonction pour créer la table collaborateurs</h3>
+                  <h3 className="font-medium mb-2">
+                    Fonction pour créer la table collaborateurs
+                  </h3>
                   <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto text-sm">
                     {`CREATE OR REPLACE FUNCTION create_collaborateurs_table()
 RETURNS void AS $$
@@ -192,7 +228,9 @@ $$ LANGUAGE plpgsql;`}
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-2">Fonction pour créer la table planning_events</h3>
+                  <h3 className="font-medium mb-2">
+                    Fonction pour créer la table planning_events
+                  </h3>
                   <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto text-sm">
                     {`CREATE OR REPLACE FUNCTION create_planning_events_table()
 RETURNS void AS $$
@@ -229,5 +267,5 @@ $$ LANGUAGE plpgsql;`}
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

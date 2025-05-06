@@ -1,12 +1,19 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { usePlanningSync } from "@/lib/planning-sync-service"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
+import LoadingSpinner from "@/components/loading-spinner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { usePlanningSync } from "@/lib/planning-sync-service";
+import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export function PlanningSyncDiagnostic() {
   const {
@@ -18,29 +25,31 @@ export function PlanningSyncDiagnostic() {
     loadPlanningEvents,
     checkSynchronization,
     repairInvalidEvents,
-  } = usePlanningSync()
+  } = usePlanningSync();
 
-  const [syncStatus, setSyncStatus] = useState<ReturnType<typeof checkSynchronization> | null>(null)
-  const [isRepairing, setIsRepairing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<ReturnType<
+    typeof checkSynchronization
+  > | null>(null);
+  const [isRepairing, setIsRepairing] = useState(false);
 
   useEffect(() => {
     if (collaborateurs.length > 0 && planningEvents.length > 0) {
-      setSyncStatus(checkSynchronization())
+      setSyncStatus(checkSynchronization());
     }
-  }, [collaborateurs, planningEvents])
+  }, [collaborateurs, planningEvents]);
 
   const handleRefresh = async () => {
-    await loadCollaborateurs()
-    await loadPlanningEvents()
-    setSyncStatus(checkSynchronization())
-  }
+    await loadCollaborateurs();
+    await loadPlanningEvents();
+    setSyncStatus(checkSynchronization());
+  };
 
   const handleRepair = async () => {
-    setIsRepairing(true)
-    await repairInvalidEvents()
-    await handleRefresh()
-    setIsRepairing(false)
-  }
+    setIsRepairing(true);
+    await repairInvalidEvents();
+    await handleRefresh();
+    setIsRepairing(false);
+  };
 
   if (isLoading) {
     return (
@@ -50,7 +59,7 @@ export function PlanningSyncDiagnostic() {
           <span className="ml-2">Chargement des données...</span>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (error) {
@@ -60,7 +69,7 @@ export function PlanningSyncDiagnostic() {
         <AlertTitle>Erreur</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
-    )
+    );
   }
 
   return (
@@ -68,7 +77,8 @@ export function PlanningSyncDiagnostic() {
       <CardHeader>
         <CardTitle>Diagnostic de synchronisation du planning</CardTitle>
         <CardDescription>
-          Vérification de la synchronisation entre les collaborateurs et les événements du planning
+          Vérification de la synchronisation entre les collaborateurs et les
+          événements du planning
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -85,10 +95,18 @@ export function PlanningSyncDiagnostic() {
           </div>
 
           {syncStatus && (
-            <Alert variant={syncStatus.isSynchronized ? "default" : "destructive"}>
-              {syncStatus.isSynchronized ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+            <Alert
+              variant={syncStatus.isSynchronized ? "default" : "destructive"}
+            >
+              {syncStatus.isSynchronized ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
               <AlertTitle>
-                {syncStatus.isSynchronized ? "Synchronisation correcte" : "Problème de synchronisation détecté"}
+                {syncStatus.isSynchronized
+                  ? "Synchronisation correcte"
+                  : "Problème de synchronisation détecté"}
               </AlertTitle>
               <AlertDescription>
                 {syncStatus.isSynchronized
@@ -105,8 +123,8 @@ export function PlanningSyncDiagnostic() {
                 <ul className="list-disc pl-5 space-y-1">
                   {syncStatus.invalidEvents.map((event) => (
                     <li key={event.id} className="text-sm">
-                      <span className="font-medium">{event.title}</span> - ID Collaborateur invalide:{" "}
-                      {event.collaborateurId}
+                      <span className="font-medium">{event.title}</span> - ID
+                      Collaborateur invalide: {event.collaborateurId}
                     </li>
                   ))}
                 </ul>
@@ -116,7 +134,11 @@ export function PlanningSyncDiagnostic() {
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={handleRefresh} disabled={isLoading || isRepairing}>
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={isLoading || isRepairing}
+        >
           <RefreshCw className="h-4 w-4 mr-2" />
           Actualiser
         </Button>
@@ -125,7 +147,7 @@ export function PlanningSyncDiagnostic() {
           <Button onClick={handleRepair} disabled={isLoading || isRepairing}>
             {isRepairing ? (
               <>
-                <LoadingSpinner className="h-4 w-4 mr-2" />
+                <LoadingSpinner size="sm" />
                 Réparation en cours...
               </>
             ) : (
@@ -135,5 +157,5 @@ export function PlanningSyncDiagnostic() {
         )}
       </CardFooter>
     </Card>
-  )
+  );
 }

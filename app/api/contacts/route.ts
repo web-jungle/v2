@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
 // GET /api/contacts - Récupérer tous les contacts
 export async function GET() {
@@ -9,7 +9,7 @@ export async function GET() {
         utilisateur: true,
         collaborateurs: true,
       },
-    })
+    });
 
     // Convertir les dates en objets Date pour la compatibilité avec le code existant
     const formattedContacts = contacts.map((contact) => ({
@@ -17,22 +17,25 @@ export async function GET() {
       dateCreation: new Date(contact.dateCreation),
       dateDerniereModification: new Date(contact.dateDerniereModification),
       archiveDate: contact.archiveDate ? new Date(contact.archiveDate) : null,
-    }))
+    }));
 
-    return NextResponse.json(formattedContacts)
+    return NextResponse.json(formattedContacts);
   } catch (error) {
-    console.error("Erreur lors de la récupération des contacts:", error)
-    return NextResponse.json({ error: "Erreur lors de la récupération des contacts" }, { status: 500 })
+    console.error("Erreur lors de la récupération des contacts:", error);
+    return NextResponse.json(
+      { error: "Erreur lors de la récupération des contacts" },
+      { status: 500 }
+    );
   }
 }
 
 // POST /api/contacts - Créer un nouveau contact
 export async function POST(request: Request) {
   try {
-    const data = await request.json()
+    const data = await request.json();
 
     // Extraire les IDs des collaborateurs pour créer les relations
-    const { collaborateursIds, ...contactData } = data
+    const { collaborateursIds, ...contactData } = data;
 
     const contact = await prisma.contact.create({
       data: {
@@ -47,11 +50,14 @@ export async function POST(request: Request) {
         utilisateur: true,
         collaborateurs: true,
       },
-    })
+    });
 
-    return NextResponse.json(contact, { status: 201 })
+    return NextResponse.json(contact, { status: 201 });
   } catch (error) {
-    console.error("Erreur lors de la création du contact:", error)
-    return NextResponse.json({ error: "Erreur lors de la création du contact" }, { status: 500 })
+    console.error("Erreur lors de la création du contact:", error);
+    return NextResponse.json(
+      { error: "Erreur lors de la création du contact" },
+      { status: 500 }
+    );
   }
 }
