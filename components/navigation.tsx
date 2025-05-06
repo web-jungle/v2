@@ -233,9 +233,7 @@ export default function Navigation() {
           {/* Profil utilisateur et déconnexion */}
           <div className="p-4 border-t">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium truncate">
-                Utilisateur #{userId}
-              </div>
+              <div className="text-sm font-medium truncate">{user?.nom}</div>
             </div>
             <div className="text-xs text-muted-foreground mb-4">
               {role === "admin"

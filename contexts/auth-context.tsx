@@ -2,7 +2,6 @@
 
 import { useAuthToken } from "@/hooks/useAuthToken";
 import type { Evenement, Role, SessionUtilisateur } from "@/lib/types";
-import { useRouter } from "next/navigation";
 import {
   createContext,
   useContext,
@@ -26,7 +25,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUtilisateur | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [globalEvents, setGlobalEvents] = useState<Evenement[]>([]);
-  const router = useRouter();
   const {
     isAuthenticated,
     userId,
@@ -42,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const tokenUser: SessionUtilisateur = {
         id: userId,
         role: (role as Role) || "collaborateur",
-        nom: `Utilisateur #${userId}`,
+        nom: user?.nom || "",
         identifiant: `user_${userId}`,
         collaborateur_id: userId,
         collaborateurs_geres: [],
@@ -72,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const events = await response.json();
 
       // Convertir les dates string en objets Date
-      const formattedEvents = events.map((event: any) => ({
+      const formattedEvents = events.map((event: Evenement) => ({
         ...event,
         start: new Date(event.start),
         end: new Date(event.end),
