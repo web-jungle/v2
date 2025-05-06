@@ -27,6 +27,7 @@ model Collaborateur {
   contactsGeres     Contact[]   @relation("CollaborateurContact")
   demandesConges    DemandeConge[]
   salarie           Salarie?
+  ficheDePoste      FicheDePoste?
 
   @@map("collaborateurs")
 }
@@ -230,6 +231,36 @@ model StockItem {
   createdAt               DateTime    @default(now()) @map("created_at")
 
   @@map("stock_items")
+}
+
+// Modèle pour les fiches de poste
+model FicheDePoste {
+  id                String      @id @default(uuid())
+  classification    String
+  poste             String
+  entreprise        String
+  typeContrat       String      @map("type_contrat")
+  dureeContrat      String?     @map("duree_contrat")
+  certifications    String[]
+  habilitations     String[]
+  competencesRequises String[]  @map("competences_requises")
+  description       String
+  missions          String[]
+  experience        String?
+  formation         String?
+  remuneration      String?
+  avantages         String?
+  horaires          String?
+  lieuTravail       String?     @map("lieu_travail")
+  dateCreation      DateTime    @default(now()) @map("date_creation")
+  dateModification  DateTime    @default(now()) @map("date_modification")
+  estActive         Boolean     @default(true) @map("est_active")
+  collaborateurId   String?     @unique @map("collaborateur_id")
+  
+  // Relations
+  collaborateur     Collaborateur? @relation(fields: [collaborateurId], references: [id])
+  
+  @@map("fiches_de_poste")
 }
 
 // Modèle pour les administrateurs

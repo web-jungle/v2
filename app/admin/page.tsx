@@ -42,6 +42,7 @@ import { useEffect, useState } from "react";
 
 export default function AdminPage() {
   const { user } = useAuth();
+
   const router = useRouter();
   const { toast } = useToast();
   const [comptes, setComptes] = useState([]);
