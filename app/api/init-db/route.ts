@@ -1,21 +1,19 @@
+import { hashPassword } from "@/lib/auth-utils";
 import {
   demandesCongesInitiales,
   notificationsInitiales,
 } from "@/lib/conges-data";
 import { contactsInitiaux } from "@/lib/crm-data";
-
-export const runtime = 'nodejs';
-import {
-  collaborateurs,
-  evenementsInitiaux,
-  utilisateursInitiaux,
-} from "@/lib/data";
+import { collaborateurs, evenementsInitiaux } from "@/lib/data";
 import { vehiculesInitiaux } from "@/lib/logistique-data";
 import { stockItemsInitiaux } from "@/lib/logistique-stock-data";
 import { contratsInitiaux } from "@/lib/maintenance-data";
 import { prisma } from "@/lib/prisma";
 import { salariesInitiaux } from "@/lib/rh-data";
 import { NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
+
+export const runtime = "nodejs";
 
 // GET /api/init-db - Initialiser la base de données avec des données de test
 export async function GET() {
@@ -24,34 +22,60 @@ export async function GET() {
     for (const collaborateur of collaborateurs) {
       await prisma.collaborateur.upsert({
         where: { id: collaborateur.id },
-        update: collaborateur,
-        create: collaborateur,
+        update: {
+          nom: collaborateur.nom,
+          couleur: collaborateur.couleur || "#000000", // Valeur par défaut si undefined
+          entreprise: collaborateur.entreprise,
+          aCompte: false,
+        },
+        create: {
+          id: collaborateur.id,
+          nom: collaborateur.nom,
+          couleur: collaborateur.couleur || "#000000", // Valeur par défaut si undefined
+          entreprise: collaborateur.entreprise,
+          aCompte: false,
+        },
       });
     }
 
-    // Insérer les utilisateurs
-    for (const utilisateur of utilisateursInitiaux) {
-      await prisma.utilisateur.upsert({
-        where: { id: utilisateur.id },
-        update: {
-          identifiant: utilisateur.identifiant,
-          mot_de_passe: utilisateur.mot_de_passe,
-          nom: utilisateur.nom,
-          role: utilisateur.role,
-          collaborateur_id: utilisateur.collaborateur_id,
-          collaborateurs_geres: utilisateur.collaborateurs_geres || [],
-        },
-        create: {
-          id: utilisateur.id,
-          identifiant: utilisateur.identifiant,
-          motDePasse: utilisateur.motDePasse,
-          nom: utilisateur.nom,
-          role: utilisateur.role,
-          collaborateurId: utilisateur.collaborateurId,
-          collaborateursGeres: utilisateur.collaborateursGeres || [],
-        },
-      });
-    }
+    // Création du collaborateur administrateur et son compte
+    console.log("👤 Création du collaborateur administrateur...");
+
+    // Générer des UUID uniques
+    const adminCollaborateurId = uuidv4();
+    const adminCompteId = uuidv4();
+
+    // Créer un collaborateur admin
+    const adminCollaborateur = await prisma.collaborateur.create({
+      data: {
+        id: adminCollaborateurId,
+        nom: "Administrateur",
+        couleur: "#FF0000", // Rouge pour admin
+        entreprise: "ORIZON GROUP",
+        aCompte: true,
+      },
+    });
+
+    console.log(
+      `  ✓ Collaborateur administrateur inséré: ${adminCollaborateur.nom}`
+    );
+
+    // Créer le compte admin lié au collaborateur
+    const hashedPassword = hashPassword("admin");
+
+    const adminCompte = await prisma.compte.create({
+      data: {
+        id: adminCompteId,
+        identifiant: "admin",
+        motDePasse: hashedPassword,
+        role: "admin",
+        collaborateurId: adminCollaborateurId,
+      },
+    });
+
+    console.log(
+      `  ✓ Compte administrateur créé avec identifiant: ${adminCompte.identifiant} et mot de passe: admin`
+    );
 
     // Insérer les événements
     for (const evenement of evenementsInitiaux) {
@@ -61,36 +85,36 @@ export async function GET() {
           title: evenement.title,
           start: evenement.start,
           end: evenement.end,
-          collaborateurId: evenement.collaborateurId,
-          typeEvenement: evenement.typeEvenement,
-          lieuChantier: evenement.lieuChantier || null,
-          zoneTrajet: evenement.zoneTrajet || null,
-          panierRepas: evenement.panierRepas,
-          ticketRestaurant: evenement.ticketRestaurant || false,
-          heuresSupplementaires: evenement.heuresSupplementaires,
-          grandDeplacement: evenement.grandDeplacement,
+          collaborateurId: evenement.collaborateur_id,
+          typeEvenement: evenement.type_evenement,
+          lieuChantier: evenement.lieu_chantier || null,
+          zoneTrajet: evenement.zone_trajet || null,
+          panierRepas: evenement.panier_repas,
+          ticketRestaurant: false,
+          heuresSupplementaires: evenement.heures_supplementaires,
+          grandDeplacement: evenement.grand_deplacement,
           prgd: evenement.prgd,
-          nombrePrgd: evenement.nombrePrgd,
-          typeAbsence: evenement.typeAbsence || null,
-          verrouille: evenement.verrouille || false,
+          nombrePrgd: evenement.nombre_prgd || 0,
+          typeAbsence: evenement.type_absence || null,
+          verrouille: false,
         },
         create: {
           id: evenement.id,
           title: evenement.title,
           start: evenement.start,
           end: evenement.end,
-          collaborateurId: evenement.collaborateurId,
-          typeEvenement: evenement.typeEvenement,
-          lieuChantier: evenement.lieuChantier || null,
-          zoneTrajet: evenement.zoneTrajet || null,
-          panierRepas: evenement.panierRepas,
-          ticketRestaurant: evenement.ticketRestaurant || false,
-          heuresSupplementaires: evenement.heuresSupplementaires,
-          grandDeplacement: evenement.grandDeplacement,
+          collaborateurId: evenement.collaborateur_id,
+          typeEvenement: evenement.type_evenement,
+          lieuChantier: evenement.lieu_chantier || null,
+          zoneTrajet: evenement.zone_trajet || null,
+          panierRepas: evenement.panier_repas,
+          ticketRestaurant: false,
+          heuresSupplementaires: evenement.heures_supplementaires,
+          grandDeplacement: evenement.grand_deplacement,
           prgd: evenement.prgd,
-          nombrePrgd: evenement.nombrePrgd,
-          typeAbsence: evenement.typeAbsence || null,
-          verrouille: evenement.verrouille || false,
+          nombrePrgd: evenement.nombre_prgd || 0,
+          typeAbsence: evenement.type_absence || null,
+          verrouille: false,
         },
       });
     }
@@ -169,6 +193,9 @@ export async function GET() {
 
     // Insérer les contacts
     for (const contact of contactsInitiaux) {
+      // Utiliser l'ID du compte admin généré
+      const utilisateurId = adminCompteId;
+
       // Créer le contact sans les relations
       await prisma.contact.upsert({
         where: { id: contact.id },
@@ -185,7 +212,7 @@ export async function GET() {
           commentaires: contact.commentaires,
           dateCreation: contact.dateCreation,
           dateDerniereModification: contact.dateDerniereModification,
-          utilisateurId: contact.utilisateurId,
+          utilisateurId: utilisateurId, // Utiliser l'ID du compte admin
           montantDevis: contact.montantDevis,
         },
         create: {
@@ -202,19 +229,19 @@ export async function GET() {
           commentaires: contact.commentaires,
           dateCreation: contact.dateCreation,
           dateDerniereModification: contact.dateDerniereModification,
-          utilisateurId: contact.utilisateurId,
-          collaborateursIds: contact.collaborateursIds,
+          utilisateurId: utilisateurId, // Utiliser l'ID du compte admin
           montantDevis: contact.montantDevis,
+          collaborateursIds: contact.collaborateursIds || [],
         },
       });
 
-      // Mettre à jour les relations avec les collaborateurs
-      if (contact.collaborateursIds && contact.collaborateursIds.length > 0) {
+      // Connecter les collaborateurs au contact si nécessaire
+      for (const collaborateurId of contact.collaborateursIds || []) {
         await prisma.contact.update({
           where: { id: contact.id },
           data: {
             collaborateurs: {
-              connect: contact.collaborateursIds.map((id) => ({ id })),
+              connect: { id: collaborateurId },
             },
           },
         });
@@ -223,10 +250,13 @@ export async function GET() {
 
     // Insérer les demandes de congés
     for (const demande of demandesCongesInitiales) {
+      // Utiliser l'ID du compte admin généré
+      const utilisateurId = adminCompteId;
+
       await prisma.demandeConge.upsert({
         where: { id: demande.id },
         update: {
-          utilisateurId: demande.utilisateurId,
+          utilisateurId: utilisateurId, // Utiliser l'admin
           collaborateurId: demande.collaborateurId,
           collaborateurNom: demande.collaborateurNom,
           dateDebut: demande.dateDebut,
@@ -234,14 +264,14 @@ export async function GET() {
           typeConge: demande.typeConge,
           motif: demande.motif,
           statut: demande.statut,
-          commentaireAdmin: demande.commentaireAdmin,
+          commentaireAdmin: demande.commentaireAdmin || null,
           dateCreation: demande.dateCreation,
           dateModification: demande.dateModification,
           notificationLue: demande.notificationLue,
         },
         create: {
           id: demande.id,
-          utilisateurId: demande.utilisateurId,
+          utilisateurId: utilisateurId, // Utiliser l'admin
           collaborateurId: demande.collaborateurId,
           collaborateurNom: demande.collaborateurNom,
           dateDebut: demande.dateDebut,
@@ -249,7 +279,7 @@ export async function GET() {
           typeConge: demande.typeConge,
           motif: demande.motif,
           statut: demande.statut,
-          commentaireAdmin: demande.commentaireAdmin,
+          commentaireAdmin: demande.commentaireAdmin || null,
           dateCreation: demande.dateCreation,
           dateModification: demande.dateModification,
           notificationLue: demande.notificationLue,
@@ -259,26 +289,29 @@ export async function GET() {
 
     // Insérer les notifications
     for (const notification of notificationsInitiales) {
+      // Utiliser l'ID du compte admin généré
+      const utilisateurId = adminCompteId;
+
       await prisma.notification.upsert({
         where: { id: notification.id },
         update: {
-          utilisateurId: notification.utilisateurId,
+          utilisateurId: utilisateurId, // Utiliser l'admin
           message: notification.message,
           lien: notification.lien,
           dateCreation: notification.dateCreation,
           lue: notification.lue,
           type: notification.type,
-          demandeId: notification.demandeId,
+          demandeId: notification.demandeId || null,
         },
         create: {
           id: notification.id,
-          utilisateurId: notification.utilisateurId,
+          utilisateurId: utilisateurId, // Utiliser l'admin
           message: notification.message,
           lien: notification.lien,
           dateCreation: notification.dateCreation,
           lue: notification.lue,
           type: notification.type,
-          demandeId: notification.demandeId,
+          demandeId: notification.demandeId || null,
         },
       });
     }
@@ -291,16 +324,18 @@ export async function GET() {
           client: contrat.client,
           type: contrat.type,
           montant: contrat.montant,
-          dateDebut: new Date(contrat.dateDebut),
-          dateEcheance: new Date(contrat.dateEcheance),
+          dateDebut: new Date(contrat.dateDebut || Date.now()),
+          dateEcheance: new Date(contrat.dateEcheance || Date.now()),
           statut: contrat.statut,
           description: contrat.description,
           contactClient: contrat.contactClient,
           emailContact: contrat.emailContact,
           telephoneContact: contrat.telephoneContact,
           notes: contrat.notes,
-          dateCreation: new Date(contrat.dateCreation),
-          dateDerniereModification: new Date(contrat.dateDerniereModification),
+          dateCreation: new Date(contrat.dateCreation || Date.now()),
+          dateDerniereModification: new Date(
+            contrat.dateDerniereModification || Date.now()
+          ),
         },
         create: {
           id: contrat.id,
@@ -308,16 +343,18 @@ export async function GET() {
           reference: contrat.reference,
           type: contrat.type,
           montant: contrat.montant,
-          dateDebut: new Date(contrat.dateDebut),
-          dateEcheance: new Date(contrat.dateEcheance),
+          dateDebut: new Date(contrat.dateDebut || Date.now()),
+          dateEcheance: new Date(contrat.dateEcheance || Date.now()),
           statut: contrat.statut,
           description: contrat.description,
           contactClient: contrat.contactClient,
           emailContact: contrat.emailContact,
           telephoneContact: contrat.telephoneContact,
           notes: contrat.notes,
-          dateCreation: new Date(contrat.dateCreation),
-          dateDerniereModification: new Date(contrat.dateDerniereModification),
+          dateCreation: new Date(contrat.dateCreation || Date.now()),
+          dateDerniereModification: new Date(
+            contrat.dateDerniereModification || Date.now()
+          ),
         },
       });
     }

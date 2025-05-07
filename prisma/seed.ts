@@ -1,3 +1,4 @@
+import { hashPassword } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -9,7 +10,6 @@ import {
   administrateursInitiaux,
   collaborateurs,
   evenementsInitiaux,
-  utilisateursInitiaux,
 } from "../lib/data";
 import { vehiculesInitiaux } from "../lib/logistique-data";
 import { stockItemsInitiaux } from "../lib/logistique-stock-data";
@@ -37,81 +37,53 @@ async function main() {
       console.log(`  ✓ Collaborateur inséré: ${collaborateur.nom}`);
     }
 
-    // 2. Insérer les comptes utilisateurs
-    console.log("👤 Insertion des comptes utilisateurs...");
-    for (const utilisateur of utilisateursInitiaux) {
-      // Créer le compte
-      if (utilisateur.collaborateur_id) {
-        await prisma.compte.upsert({
-          where: { id: utilisateur.id },
-          update: {
-            identifiant: utilisateur.identifiant,
-            motDePasse: utilisateur.mot_de_passe,
-            role: utilisateur.role as any,
-            collaborateurId: utilisateur.collaborateur_id,
-          },
-          create: {
-            id: utilisateur.id,
-            identifiant: utilisateur.identifiant,
-            motDePasse: utilisateur.mot_de_passe,
-            role: utilisateur.role as any,
-            collaborateur: {
-              connect: { id: utilisateur.collaborateur_id },
-            },
-          },
-        });
+    // 2. Création du collaborateur administrateur et son compte
+    console.log("👤 Création du collaborateur administrateur...");
 
-        // Mettre à jour le champ aCompte du collaborateur
-        await prisma.collaborateur.update({
-          where: { id: utilisateur.collaborateur_id },
-          data: { aCompte: true },
-        });
-      } else {
-        // Pour les comptes sans collaborateur (admin)
-        await prisma.compte.upsert({
-          where: { id: utilisateur.id },
-          update: {
-            identifiant: utilisateur.identifiant,
-            motDePasse: utilisateur.mot_de_passe,
-            role: utilisateur.role as any,
-          },
-          create: {
-            id: utilisateur.id,
-            identifiant: utilisateur.identifiant,
-            motDePasse: utilisateur.mot_de_passe,
-            role: utilisateur.role as any,
-          },
-        });
-      }
+    // Créer un collaborateur admin
+    const adminCollaborateur = await prisma.collaborateur.upsert({
+      where: { id: "admin-collaborateur-id" },
+      update: {
+        nom: "Administrateur",
+        couleur: "#FF0000", // Rouge pour admin
+        entreprise: "ORIZON GROUP",
+        aCompte: true,
+      },
+      create: {
+        id: "admin-collaborateur-id",
+        nom: "Administrateur",
+        couleur: "#FF0000", // Rouge pour admin
+        entreprise: "ORIZON GROUP",
+        aCompte: true,
+      },
+    });
 
-      console.log(`  ✓ Compte utilisateur inséré: ${utilisateur.identifiant}`);
-    }
+    console.log(
+      `  ✓ Collaborateur administrateur inséré: ${adminCollaborateur.nom}`
+    );
 
-    // 2b. Établir les relations entre managers et collaborateurs
-    console.log("👥 Configuration des relations managers-collaborateurs...");
-    for (const utilisateur of utilisateursInitiaux) {
-      if (
-        utilisateur.role === "manager" &&
-        utilisateur.collaborateursGeres &&
-        utilisateur.collaborateursGeres.length > 0
-      ) {
-        // Mettre à jour les relations manager-collaborateurs
-        await prisma.compte.update({
-          where: { id: utilisateur.id },
-          data: {
-            collaborateursGeres: {
-              connect: utilisateur.collaborateursGeres.map((id: string) => ({
-                id,
-              })),
-            },
-          },
-        });
+    // Créer le compte admin lié au collaborateur
+    const hashedPassword = hashPassword("admin");
 
-        console.log(
-          `  ✓ Relations définies pour ${utilisateur.identifiant} (${utilisateur.collaborateursGeres.length} collaborateurs)`
-        );
-      }
-    }
+    await prisma.compte.upsert({
+      where: { collaborateurId: adminCollaborateur.id },
+      update: {
+        identifiant: "admin",
+        motDePasse: hashedPassword,
+        role: "admin",
+      },
+      create: {
+        id: "admin-account-id",
+        identifiant: "admin",
+        motDePasse: hashedPassword,
+        role: "admin",
+        collaborateurId: adminCollaborateur.id,
+      },
+    });
+
+    console.log(
+      `  ✓ Compte administrateur créé avec identifiant: admin et mot de passe: admin`
+    );
 
     // 3. Insérer les événements
     console.log("📅 Insertion des événements...");
@@ -249,6 +221,9 @@ async function main() {
     // 6. Insérer les contacts (CRM)
     console.log("📞 Insertion des contacts...");
     for (const contact of contactsInitiaux) {
+      // Mettre à jour l'utilisateurId pour utiliser l'administrateur
+      const utilisateurId = "admin-account-id";
+
       // Créer le contact
       await prisma.contact.upsert({
         where: { id: contact.id },
@@ -265,7 +240,7 @@ async function main() {
           commentaires: contact.commentaires || null,
           dateCreation: contact.dateCreation,
           dateDerniereModification: contact.dateDerniereModification,
-          utilisateurId: contact.utilisateurId, // Maintenant utilisateurId fait référence à l'ID du compte
+          utilisateurId: utilisateurId, // Utiliser l'admin pour tous les contacts
           collaborateursIds: contact.collaborateursIds,
           montantDevis: contact.montantDevis || null,
           archived: false,
@@ -285,7 +260,7 @@ async function main() {
           commentaires: contact.commentaires || null,
           dateCreation: contact.dateCreation,
           dateDerniereModification: contact.dateDerniereModification,
-          utilisateurId: contact.utilisateurId, // Maintenant utilisateurId fait référence à l'ID du compte
+          utilisateurId: utilisateurId, // Utiliser l'admin pour tous les contacts
           collaborateursIds: contact.collaborateursIds,
           montantDevis: contact.montantDevis || null,
           archived: false,
@@ -311,10 +286,13 @@ async function main() {
     // 7. Insérer les demandes de congés
     console.log("🏖️ Insertion des demandes de congés...");
     for (const demande of demandesCongesInitiales) {
+      // Utiliser l'ID du compte admin
+      const utilisateurId = "admin-account-id";
+
       await prisma.demandeConge.upsert({
         where: { id: demande.id },
         update: {
-          utilisateurId: demande.utilisateurId, // Maintenant utilisateurId fait référence à l'ID du compte
+          utilisateurId: utilisateurId, // Utiliser l'admin
           collaborateurId: demande.collaborateurId,
           collaborateurNom: demande.collaborateurNom,
           dateDebut: demande.dateDebut,
@@ -329,7 +307,7 @@ async function main() {
         },
         create: {
           id: demande.id,
-          utilisateurId: demande.utilisateurId, // Maintenant utilisateurId fait référence à l'ID du compte
+          utilisateurId: utilisateurId, // Utiliser l'admin
           collaborateurId: demande.collaborateurId,
           collaborateurNom: demande.collaborateurNom,
           dateDebut: demande.dateDebut,
@@ -351,10 +329,13 @@ async function main() {
     // 8. Insérer les notifications
     console.log("🔔 Insertion des notifications...");
     for (const notification of notificationsInitiales) {
+      // Utiliser l'ID du compte admin
+      const utilisateurId = "admin-account-id";
+
       await prisma.notification.upsert({
         where: { id: notification.id },
         update: {
-          utilisateurId: notification.utilisateurId, // Maintenant utilisateurId fait référence à l'ID du compte
+          utilisateurId: utilisateurId, // Utiliser l'admin
           message: notification.message,
           lien: notification.lien,
           dateCreation: notification.dateCreation,
@@ -364,7 +345,7 @@ async function main() {
         },
         create: {
           id: notification.id,
-          utilisateurId: notification.utilisateurId, // Maintenant utilisateurId fait référence à l'ID du compte
+          utilisateurId: utilisateurId, // Utiliser l'admin
           message: notification.message,
           lien: notification.lien,
           dateCreation: notification.dateCreation,
