@@ -20,6 +20,7 @@ interface DetailsCongeModalProps {
     commentaire?: string
   ) => void;
   onModifier: () => void;
+  onDelete: (demandeId: string) => void;
   userRole?: string;
   userId?: string;
   getStatusBadgeColor: (statut: StatutConge) => string;
@@ -33,6 +34,7 @@ export default function DetailsCongeModal({
   setCommentaireAdmin,
   onUpdateStatut,
   onModifier,
+  onDelete,
   userRole,
   userId,
   getStatusBadgeColor,
@@ -276,6 +278,11 @@ export default function DetailsCongeModal({
             demande.utilisateurId === userId && (
               <Button onClick={onModifier}>Modifier</Button>
             )}
+          {demande && userRole === "admin" && (
+            <Button variant="destructive" onClick={() => onDelete(demande.id)}>
+              Supprimer
+            </Button>
+          )}
         </div>
       </div>
     </div>
