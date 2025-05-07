@@ -123,8 +123,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-muted-foreground text-sm">
-              Gérez les dossiers du personnel, les contrats, certifications et
-              habilitations.
+              Gérez les dossiers du personnel.
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
