@@ -130,12 +130,26 @@ export async function PATCH(
       prismaData.nombrePrgd = Number(data.nombrePrgd);
     if (data.typeAbsence !== undefined)
       prismaData.typeAbsence = data.typeAbsence;
-    if (data.verrouille !== undefined)
-      prismaData.verrouille = Boolean(data.verrouille);
     if (data.latitude !== undefined) prismaData.latitude = data.latitude;
     if (data.longitude !== undefined) prismaData.longitude = data.longitude;
     if (data.adresseComplete !== undefined)
       prismaData.adresseComplete = data.adresseComplete;
+
+    // Vérifier si on tente de modifier le verrouillage
+    if (data.verrouille !== undefined) {
+      // Seul un admin peut verrouiller/déverrouiller un événement
+      if (role === "admin") {
+        prismaData.verrouille = Boolean(data.verrouille);
+      } else {
+        return NextResponse.json(
+          {
+            error:
+              "Seuls les administrateurs peuvent verrouiller ou déverrouiller des événements.",
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const evenement = await prisma.evenement.update({
       where: { id },

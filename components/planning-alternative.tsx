@@ -214,6 +214,23 @@ export default function Planning() {
     setIsModalOpen(true);
   }, []);
 
+  // Fonction pour vérifier si un collaborateur a déjà un événement pour une date donnée
+  const hasDayEvent = useCallback(
+    (collaborateurId: string, date: Date): boolean => {
+      // Convertir la date pour comparer seulement le jour (sans l'heure)
+      const dateString = format(date, "yyyy-MM-dd");
+
+      return events.some((event) => {
+        if (event.collaborateurId !== collaborateurId) return false;
+
+        // Convertir la date de début de l'événement au même format
+        const eventDateString = format(event.start, "yyyy-MM-dd");
+        return dateString === eventDateString;
+      });
+    },
+    [events]
+  );
+
   const handleSelectSlot = useCallback(
     (slotInfo: { start: Date; end: Date; collaborateurId?: string }) => {
       // Vérifier si l'utilisateur a les droits pour créer un événement
@@ -227,10 +244,24 @@ export default function Planning() {
         return;
       }
 
+      // Vérifier si le collaborateur a déjà un événement ce jour-là
+      if (
+        slotInfo.collaborateurId &&
+        hasDayEvent(slotInfo.collaborateurId, slotInfo.start)
+      ) {
+        toast({
+          title: "Création impossible",
+          description:
+            "Ce collaborateur a déjà un événement programmé pour cette date.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setTempSlotInfo(slotInfo);
       setIsTypeSelectorOpen(true);
     },
-    [userRole, toast]
+    [userRole, toast, hasDayEvent]
   );
 
   const handleSelectEventType = useCallback(
@@ -435,6 +466,34 @@ export default function Planning() {
         return;
       }
 
+      // Déterminer si c'est une création ou une mise à jour
+      const isNewEvent =
+        !event.id || event.id.startsWith("temp_") || /^\d{13,}$/.test(event.id);
+
+      // Si c'est une mise à jour ou un nouvel événement, vérifier s'il y a conflit
+      // Pour les mises à jour, on doit exclure l'événement actuel de la vérification
+      const existingEvents = events.filter((e) => {
+        if (!isNewEvent && e.id === event.id) return false;
+        return e.collaborateurId === event.collaborateurId;
+      });
+
+      // Vérifier si un autre événement existe déjà pour ce collaborateur ce jour-là
+      const eventDate = format(event.start, "yyyy-MM-dd");
+      const hasConflict = existingEvents.some((e) => {
+        const existingDate = format(e.start, "yyyy-MM-dd");
+        return eventDate === existingDate;
+      });
+
+      if (hasConflict) {
+        toast({
+          title: "Conflit détecté",
+          description:
+            "Ce collaborateur a déjà un événement programmé pour cette date.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       try {
         setIsLoading(true);
 
@@ -451,11 +510,6 @@ export default function Planning() {
           return;
         }
 
-        // Déterminer si c'est une création ou une mise à jour
-        const isNewEvent =
-          !event.id ||
-          event.id.startsWith("temp_") ||
-          /^\d{13,}$/.test(event.id);
         const url = isNewEvent
           ? "/api/evenements"
           : `/api/evenements/${event.id}`;
@@ -510,7 +564,7 @@ export default function Planning() {
         setIsLoading(false);
       }
     },
-    [toast, userRole, refreshData]
+    [toast, userRole, refreshData, events]
   );
 
   const handleDeleteEvent = useCallback(
@@ -595,6 +649,22 @@ export default function Planning() {
           title: "Accès refusé",
           description:
             "Seuls les administrateurs et managers peuvent dupliquer des événements.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Vérifier si le collaborateur a déjà un événement à cette date
+      const targetCollaborateurId = newCollaborateurId || event.collaborateurId;
+      // S'assurer que targetCollaborateurId est bien une chaîne
+      if (
+        targetCollaborateurId &&
+        hasDayEvent(targetCollaborateurId, newDate)
+      ) {
+        toast({
+          title: "Duplication impossible",
+          description:
+            "Ce collaborateur a déjà un événement programmé pour cette date.",
           variant: "destructive",
         });
         return;
@@ -702,18 +772,76 @@ export default function Planning() {
         setIsLoading(false);
       }
     },
-    [toast, userRole]
+    [toast, userRole, hasDayEvent]
   );
 
   const handleToggleLock = useCallback(
     async (eventId: string, locked: boolean) => {
-      // Simulation de verrouillage/déverrouillage
-      toast({
-        title: locked ? "Événement verrouillé" : "Événement déverrouillé",
-        description: "Simulation de modification du verrouillage.",
-      });
+      // Seul l'admin peut verrouiller/déverrouiller un événement
+      if (userRole !== "admin") {
+        toast({
+          title: "Accès refusé",
+          description:
+            "Seuls les administrateurs peuvent verrouiller ou déverrouiller des événements.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+
+        // Obtenir le token d'authentification
+        const token = localStorage.getItem("auth_token");
+
+        if (!token) {
+          toast({
+            title: "Erreur d'authentification",
+            description:
+              "Vous devez être connecté pour effectuer cette action.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const response = await fetch(`/api/evenements/${eventId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ verrouille: locked }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Erreur lors du verrouillage de l'événement"
+          );
+        }
+
+        // Rafraîchir les données
+        refreshData();
+
+        toast({
+          title: locked ? "Événement verrouillé" : "Événement déverrouillé",
+          description: `L'événement a été ${
+            locked ? "verrouillé" : "déverrouillé"
+          } avec succès.`,
+        });
+      } catch (error) {
+        console.error("Erreur lors du verrouillage/déverrouillage:", error);
+        toast({
+          title: "Erreur",
+          description:
+            error instanceof Error ? error.message : "Une erreur est survenue.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     },
-    [toast]
+    [toast, userRole, refreshData]
   );
 
   // Filtrer les événements selon les collaborateurs sélectionnés
@@ -749,6 +877,7 @@ export default function Planning() {
       borderRadius: "4px",
       opacity: 0.8,
       color: "white",
+      // Afficher la bordure de verrouillage seulement si événement verrouillé
       border: event.verrouille ? "2px solid #6b7280" : "0px",
       display: "block",
     };
@@ -859,6 +988,7 @@ export default function Planning() {
             onToggleLock={handleToggleLock}
             userRole={userRole}
             userCollaborateurId={userCollaborateurId || ""}
+            showLockFeature={userRole === "admin"}
           />
           <Legend />
         </>

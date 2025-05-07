@@ -27,6 +27,7 @@ interface ResourceViewProps {
   onToggleLock: (eventId: string, locked: boolean) => void;
   userRole?: Role;
   userCollaborateurId?: string;
+  showLockFeature?: boolean;
 }
 
 export default function ResourceView({
@@ -39,6 +40,7 @@ export default function ResourceView({
   onToggleLock,
   userRole = "admin",
   userCollaborateurId = "",
+  showLockFeature = false,
 }: ResourceViewProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(new Date());
   const [weekDays, setWeekDays] = useState<Date[]>([]);
@@ -155,11 +157,12 @@ export default function ResourceView({
     (event: Evenement, e: React.MouseEvent) => {
       e.stopPropagation();
       // Seul l'administrateur peut verrouiller/déverrouiller un événement
-      if (userRole === "admin") {
+      // et seulement si la fonctionnalité est activée
+      if (userRole === "admin" && showLockFeature) {
         onToggleLock(event.id, !event.verrouille);
       }
     },
-    [userRole, onToggleLock]
+    [userRole, onToggleLock, showLockFeature]
   );
 
   // Obtenir la couleur de fond pour un type d'absence
@@ -408,25 +411,26 @@ export default function ResourceView({
                                     }
                                   >
                                     {/* Bouton de verrouillage (uniquement pour les admins) */}
-                                    {userRole === "admin" && (
-                                      <button
-                                        className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) =>
-                                          handleToggleLock(event, e)
-                                        }
-                                        title={
-                                          event.verrouille
-                                            ? "Déverrouiller l'événement"
-                                            : "Verrouiller l'événement"
-                                        }
-                                      >
-                                        {event.verrouille ? (
-                                          <Lock className="h-3 w-3 text-red-500" />
-                                        ) : (
-                                          <Unlock className="h-3 w-3 text-gray-500" />
-                                        )}
-                                      </button>
-                                    )}
+                                    {userRole === "admin" &&
+                                      showLockFeature && (
+                                        <button
+                                          className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                          onClick={(e) =>
+                                            handleToggleLock(event, e)
+                                          }
+                                          title={
+                                            event.verrouille
+                                              ? "Déverrouiller l'événement"
+                                              : "Verrouiller l'événement"
+                                          }
+                                        >
+                                          {event.verrouille ? (
+                                            <Lock className="h-3 w-3 text-red-500" />
+                                          ) : (
+                                            <Unlock className="h-3 w-3 text-gray-500" />
+                                          )}
+                                        </button>
+                                      )}
 
                                     {event.typeEvenement === "presence" ? (
                                       <>
