@@ -8,7 +8,8 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: ["localhost", "https://v2-kappa-flame.vercel.app"],
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;
